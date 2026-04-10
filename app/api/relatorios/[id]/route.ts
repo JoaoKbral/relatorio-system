@@ -1,0 +1,85 @@
+import { prisma } from "@/lib/prisma";
+import { decrypt } from "@/lib/session";
+import { Decimal } from "@prisma/client/runtime/client";
+import { NextRequest } from "next/server";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!await decrypt(req.cookies.get("session")?.value)) return Response.json({ error: "Não autorizado" }, { status: 401 })
+  const { id } = await params;
+  const report = await prisma.report.findUnique({
+    where: { id: Number(id) },
+    include: { tithers: { orderBy: { order: "asc" } } },
+  });
+  if (!report) return Response.json({ error: "Não encontrado" }, { status: 404 });
+  return Response.json(report);
+}
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!await decrypt(req.cookies.get("session")?.value)) return Response.json({ error: "Não autorizado" }, { status: 401 })
+  const { id } = await params;
+  const body = await req.json();
+
+  const {
+    dataCulto, diaDaSemana, horario, pregador,
+    pastoresPresentes, visitasEspeciais,
+    testemunhoCura, conversoes, batizadosEspirito, visitantes,
+    diaconosServico, criancasApresentadas, totalPresentes,
+    totalOfertasGerais, totalOfertasEspeciais, outrasEntradas,
+    totalOfertasMissoes, diaconosResponsaveis, tithers,
+  } = body;
+
+  const totalDizimos = (tithers as { value: number }[]).reduce(
+    (sum, t) => sum + Number(t.value || 0), 0
+  );
+  const arrecadacaoTotal =
+    Number(totalOfertasGerais || 0) +
+    Number(totalOfertasEspeciais || 0) +
+    Number(outrasEntradas || 0);
+
+  const [, report] = await prisma.$transaction([
+    prisma.titheRecord.deleteMany({ where: { reportId: Number(id) } }),
+    prisma.report.update({
+      where: { id: Number(id) },
+      data: {
+        dataCulto: new Date(dataCulto),
+        diaDaSemana, horario, pregador,
+        pastoresPresentes: Array.isArray(pastoresPresentes) ? pastoresPresentes.filter(Boolean) : [],
+        visitasEspeciais: Array.isArray(visitasEspeciais) ? visitasEspeciais.filter(Boolean) : [],
+        testemunhoCura: Number(testemunhoCura || 0),
+        conversoes: Number(conversoes || 0),
+        batizadosEspirito: Number(batizadosEspirito || 0),
+        visitantes: Number(visitantes || 0),
+        diaconosServico: Number(diaconosServico || 0),
+        criancasApresentadas: Number(criancasApresentadas || 0),
+        totalPresentes: Number(totalPresentes || 0),
+        totalOfertasGerais: new Decimal(totalOfertasGerais || 0),
+        totalOfertasEspeciais: new Decimal(totalOfertasEspeciais || 0),
+        outrasEntradas: new Decimal(outrasEntradas || 0),
+        arrecadacaoTotal: new Decimal(arrecadacaoTotal),
+        totalOfertasMissoes: totalOfertasMissoes ? new Decimal(totalOfertasMissoes) : null,
+        totalDizimos: new Decimal(totalDizimos),
+        diaconosResponsaveis: Array.isArray(diaconosResponsaveis) ? diaconosResponsaveis.filter(Boolean) : [],
+        tithers: {
+          create: (tithers as { personName: string; chequeNumber?: string; bankNumber?: string; value: number; order: number }[])
+            .filter((t) => t.personName?.trim())
+            .map((t) => ({
+              personName: t.personName.trim(),
+              chequeNumber: t.chequeNumber || null,
+              bankNumber: t.bankNumber || null,
+              value: new Decimal(t.value || 0),
+              order: t.order,
+            })),
+        },
+      },
+      include: { tithers: { orderBy: { order: "asc" } } },
+    }),
+  ]);
+
+  return Response.json(report);
+}

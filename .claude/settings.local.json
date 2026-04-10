@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ':*)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --yes)",
+      "Bash(npx create-next-app@latest web --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --yes)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest init --defaults --yes)",
+      "Bash(npx shadcn@latest add card input label badge select toast separator --yes)",
+      "Bash(npx shadcn@latest add card input label badge select sonner separator dialog alert --yes)",
+      "Bash(npx shadcn@latest add checkbox --yes)",
+      "Bash(mkdir:*)",
+      "Bash(npx prisma:*)",
+      "Bash(node scripts/prepare-template.mjs)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/next/package.json'\\).version\\)\")",
+      "Bash(DATABASE_URL=\"postgresql://user:pass@localhost/db\" npx prisma generate)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(xargs grep:*)",
+      "Bash(node:*)"
+    ]
+  },
+  "prefersReducedMotion": false
+}

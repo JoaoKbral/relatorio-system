@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Person {
+  id        Int      @id @default(autoincrement())
+  name      String
+  roles     String[]
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Report {
+  id                    Int           @id @default(autoincrement())
+  dataCulto             DateTime
+  diaDaSemana           String
+  horario               String
+  pregador              String
+  pastoresPresentes     String[]
+  visitasEspeciais      String[]
+  testemunhoCura        Int           @default(0)
+  conversoes            Int           @default(0)
+  batizadosEspirito     Int           @default(0)
+  visitantes            Int           @default(0)
+  diaconosServico       Int           @default(0)
+  criancasApresentadas  Int           @default(0)
+  totalPresentes        Int           @default(0)
+  totalOfertasGerais    Decimal       @db.Decimal(10, 2)
+  totalOfertasEspeciais Decimal       @db.Decimal(10, 2)
+  outrasEntradas        Decimal       @db.Decimal(10, 2)
+  arrecadacaoTotal      Decimal       @db.Decimal(10, 2)
+  totalOfertasMissoes   Decimal?      @db.Decimal(10, 2)
+  totalDizimos          Decimal       @db.Decimal(10, 2)
+  diaconosResponsaveis  String[]
+  tithers               TitheRecord[]
+  createdAt             DateTime      @default(now())
+}
+
+model TitheRecord {
+  id           Int     @id @default(autoincrement())
+  reportId     Int
+  report       Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  personName   String
+  chequeNumber String?
+  bankNumber   String?
+  value        Decimal @db.Decimal(10, 2)
+  order        Int
+}
