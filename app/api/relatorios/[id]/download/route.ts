@@ -22,11 +22,11 @@ export async function GET(
   const dateStr = new Date(report.dataCulto)
     .toLocaleDateString("pt-BR", { timeZone: "UTC" })
     .replace(/\//g, "-");
-  const filename = `REFC-${dateStr}.odt`;
+  const filename = `REFC-${dateStr}.docx`;
 
   return new Response(new Uint8Array(buf), {
     headers: {
-      "Content-Type": "application/vnd.oasis.opendocument.text",
+      "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });

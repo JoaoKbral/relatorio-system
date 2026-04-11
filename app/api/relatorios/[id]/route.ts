@@ -31,13 +31,14 @@ export async function PUT(
     testemunhoCura, conversoes, batizadosEspirito, visitantes,
     diaconosServico, criancasApresentadas, totalPresentes,
     totalOfertasGerais, totalOfertasEspeciais, outrasEntradas,
-    totalOfertasMissoes, diaconosResponsaveis, tithers,
+    totalOfertasMissoes, diaconosResponsaveis, responsavelPeloRelatorio, tithers,
   } = body;
 
   const totalDizimos = (tithers as { value: number }[]).reduce(
     (sum, t) => sum + Number(t.value || 0), 0
   );
   const arrecadacaoTotal =
+    totalDizimos +
     Number(totalOfertasGerais || 0) +
     Number(totalOfertasEspeciais || 0) +
     Number(outrasEntradas || 0);
@@ -65,13 +66,15 @@ export async function PUT(
         totalOfertasMissoes: totalOfertasMissoes ? new Decimal(totalOfertasMissoes) : null,
         totalDizimos: new Decimal(totalDizimos),
         diaconosResponsaveis: Array.isArray(diaconosResponsaveis) ? diaconosResponsaveis.filter(Boolean) : [],
+        responsavelPeloRelatorio: responsavelPeloRelatorio || null,
         tithers: {
-          create: (tithers as { personName: string; chequeNumber?: string; bankNumber?: string; value: number; order: number }[])
+          create: (tithers as { personName: string; chequeNumber?: string; bankNumber?: string; paymentMethod?: "DINHEIRO" | "PIX" | null; value: number; order: number }[])
             .filter((t) => t.personName?.trim())
             .map((t) => ({
               personName: t.personName.trim(),
               chequeNumber: t.chequeNumber || null,
               bankNumber: t.bankNumber || null,
+              paymentMethod: t.paymentMethod ?? null,
               value: new Decimal(t.value || 0),
               order: t.order,
             })),
@@ -82,4 +85,14 @@ export async function PUT(
   ]);
 
   return Response.json(report);
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!await decrypt(req.cookies.get("session")?.value)) return Response.json({ error: "Não autorizado" }, { status: 401 });
+  const { id } = await params;
+  await prisma.report.delete({ where: { id: Number(id) } });
+  return new Response(null, { status: 204 });
 }

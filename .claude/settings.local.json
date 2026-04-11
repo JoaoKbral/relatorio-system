@@ -17,7 +17,8 @@
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
       "Bash(xargs grep:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(powershell -Command ':*)"
     ]
   },
   "prefersReducedMotion": false

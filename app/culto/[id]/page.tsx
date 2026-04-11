@@ -3,12 +3,12 @@ export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
-import { ArrowLeft, Download, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { Decimal } from "@prisma/client/runtime/client";
 import { cn } from "@/lib/utils";
+import DownloadButton from "@/components/DownloadButton";
 
 function fmtCurrency(v: Decimal | null) {
   if (!v) return "—";
@@ -71,14 +71,7 @@ export default async function ViewReportPage({
           <Pencil className="w-4 h-4 mr-1" />
           Editar
         </Link>
-        <a
-          href={`/api/relatorios/${report.id}/download`}
-          download
-          className={cn(buttonVariants({ size: "sm" }))}
-        >
-          <Download className="w-4 h-4 mr-1" />
-          ODT
-        </a>
+        <DownloadButton id={report.id} dataCulto={report.dataCulto} />
       </div>
 
       <Section title="Culto">
@@ -109,12 +102,19 @@ export default async function ViewReportPage({
           <p className="py-3 text-sm text-gray-400">Nenhum membro registrado.</p>
         ) : (
           report.tithers.map((t) => (
-            <Row key={t.id} label={t.personName} value={fmtCurrency(t.value)} />
+            <Row
+              key={t.id}
+              label={`${t.personName}${t.paymentMethod ? ` (${t.paymentMethod === "PIX" ? "Pix" : "Dinheiro"})` : ""}`}
+              value={fmtCurrency(t.value)}
+            />
           ))
         )}
         <Row label="Total dízimos" value={fmtCurrency(report.totalDizimos)} />
         {report.diaconosResponsaveis.length > 0 && (
           <Row label="Diácono(s) responsável(is)" value={report.diaconosResponsaveis.join(", ")} />
+        )}
+        {report.responsavelPeloRelatorio && (
+          <Row label="Responsável pelo relatório" value={report.responsavelPeloRelatorio} />
         )}
       </Section>
 

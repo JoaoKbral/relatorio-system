@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/sonner";
 import Link from "next/link";
 import { Church, FileText, Users } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
+import { cookies } from "next/headers";
+import { decrypt } from "@/lib/session";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -21,11 +23,14 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const session = await decrypt(cookieStore.get("session")?.value);
+
   return (
     <html lang="pt-BR" className={geist.className}>
       <body className="min-h-screen bg-gray-50 flex flex-col">
@@ -73,7 +78,7 @@ export default function RootLayout({
               <Users className="w-5 h-5" />
               Pessoas
             </Link>
-            <LogoutButton />
+            {session && <LogoutButton />}
           </div>
         </nav>
 

@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import NameAutocomplete from "@/components/NameAutocomplete";
 import CurrencyInput from "@/components/CurrencyInput";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Save, Download, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save, Download, Plus, Trash2, Loader2 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -19,6 +18,7 @@ interface Tither {
   personName: string;
   chequeNumber: string;
   bankNumber: string;
+  paymentMethod: "DINHEIRO" | "PIX" | null;
   value: number;
   order: number;
 }
@@ -44,6 +44,7 @@ interface FormData {
   // Step 4 – Dízimos
   tithers: Tither[];
   diaconosResponsaveis: string[];
+  responsavelPeloRelatorio: string;
   // Step 5 – Ofertas
   totalOfertasGerais: number;
   totalOfertasEspeciais: number;
@@ -76,6 +77,7 @@ const emptyTither = (order: number): Tither => ({
   personName: "",
   chequeNumber: "",
   bankNumber: "",
+  paymentMethod: "PIX",
   value: 0,
   order,
 });
@@ -97,6 +99,7 @@ const defaultForm = (): FormData => ({
   visitasEspeciais: [""],
   tithers: [emptyTither(1)],
   diaconosResponsaveis: [],
+  responsavelPeloRelatorio: "",
   totalOfertasGerais: 0,
   totalOfertasEspeciais: 0,
   outrasEntradas: 0,
@@ -122,8 +125,10 @@ export default function NovoCultoPage() {
   const [form, setForm] = useState<FormData>(defaultForm);
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<number | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const [availableDeacons, setAvailableDeacons] = useState<string[]>([]);
   const [availablePastors, setAvailablePastors] = useState<string[]>([]);
+  const [diaconosPresentes, setDiaconosPresentes] = useState<string[]>([]);
 
   useEffect(() => {
     fetch("/api/pessoas?role=diacono")
@@ -196,15 +201,31 @@ export default function NovoCultoPage() {
     });
   }
 
+  function toggleDiaconoPresente(name: string) {
+    setDiaconosPresentes((prev) => {
+      const removing = prev.includes(name);
+      if (removing) {
+        // Remove from responsaveis and relatorio if they depended on this deacon
+        setForm((f) => {
+          const newResp = f.diaconosResponsaveis.filter((d) => d !== name);
+          const newRelat = newResp.includes(f.responsavelPeloRelatorio) ? f.responsavelPeloRelatorio : "";
+          return { ...f, diaconosResponsaveis: newResp, responsavelPeloRelatorio: newRelat };
+        });
+        return prev.filter((n) => n !== name);
+      }
+      return [...prev, name];
+    });
+  }
+
   function toggleDeacon(name: string) {
     setForm((prev) => {
       const already = prev.diaconosResponsaveis.includes(name);
-      return {
-        ...prev,
-        diaconosResponsaveis: already
-          ? prev.diaconosResponsaveis.filter((d) => d !== name)
-          : [...prev.diaconosResponsaveis, name],
-      };
+      if (!already && prev.diaconosResponsaveis.length >= 2) return prev;
+      const newResp = already
+        ? prev.diaconosResponsaveis.filter((d) => d !== name)
+        : [...prev.diaconosResponsaveis, name];
+      const newRelat = newResp.includes(prev.responsavelPeloRelatorio) ? prev.responsavelPeloRelatorio : "";
+      return { ...prev, diaconosResponsaveis: newResp, responsavelPeloRelatorio: newRelat };
     });
   }
 
@@ -241,6 +262,7 @@ export default function NovoCultoPage() {
 
   const totalDizimos = form.tithers.reduce((s, t) => s + Number(t.value), 0);
   const arrecadacaoTotal =
+    totalDizimos +
     Number(form.totalOfertasGerais) +
     Number(form.totalOfertasEspeciais) +
     Number(form.outrasEntradas);
@@ -255,6 +277,7 @@ export default function NovoCultoPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          diaconosServico: diaconosPresentes.length,
           pastoresPresentes: [...form.pastoresCheckbox, ...form.pastoresExtras.filter(Boolean)],
         }),
       });
@@ -266,6 +289,29 @@ export default function NovoCultoPage() {
       toast.error("Erro ao salvar o relatório. Tente novamente.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function downloadOdt() {
+    if (!savedId) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/relatorios/${savedId}/download`);
+      if (!res.ok) { toast.error("Erro ao baixar o relatório."); return; }
+      const blob = await res.blob();
+      const dateStr = new Date(form.dataCulto + "T12:00:00")
+        .toLocaleDateString("pt-BR")
+        .replace(/\//g, "-");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `REFC-${dateStr}.odt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Erro ao baixar o relatório.");
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -281,6 +327,8 @@ export default function NovoCultoPage() {
         return "Informe ao menos um pastor presente.";
     }
     if (step === 3) {
+      if (diaconosPresentes.length === 0)
+        return "Selecione ao menos um diácono em serviço.";
       if (form.diaconosResponsaveis.length === 0)
         return "Selecione ao menos um diácono responsável.";
     }
@@ -372,7 +420,6 @@ export default function NovoCultoPage() {
                 { key: "conversoes", label: "Conversões" },
                 { key: "batizadosEspirito", label: "Batizados no Esp. Santo" },
                 { key: "visitantes", label: "Visitantes" },
-                { key: "diaconosServico", label: "Diáconos em Serviço" },
                 { key: "criancasApresentadas", label: "Crianças Apresentadas" },
                 { key: "totalPresentes", label: "Total de Presentes" },
               ].map(({ key, label }) => (
@@ -497,6 +544,27 @@ export default function NovoCultoPage() {
                         placeholder="Nome do membro"
                       />
                     </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className={i === 0 ? "" : "sr-only"}>Forma</Label>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={t.paymentMethod === "DINHEIRO" ? "default" : "outline"}
+                          onClick={() => setTither(i, "paymentMethod", "DINHEIRO")}
+                        >
+                          Dinheiro
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={t.paymentMethod === "PIX" ? "default" : "outline"}
+                          onClick={() => setTither(i, "paymentMethod", "PIX")}
+                        >
+                          Pix
+                        </Button>
+                      </div>
+                    </div>
                     <div className="w-32 flex flex-col gap-1">
                       <Label className={i === 0 ? "" : "sr-only"}>Valor</Label>
                       <CurrencyInput
@@ -536,38 +604,88 @@ export default function NovoCultoPage() {
                 </span>
               </div>
 
-              {/* Deacon checkboxlist */}
+              {/* Diáconos em serviço */}
               <div className="flex flex-col gap-3 border-t pt-3">
-                <Label>Diácono(s) Responsável(is) *</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Diáconos em Serviço *</Label>
+                  {diaconosPresentes.length > 0 && (
+                    <span className="text-xs text-gray-500">{diaconosPresentes.length} selecionado(s)</span>
+                  )}
+                </div>
                 {availableDeacons.length === 0 ? (
                   <p className="text-sm text-gray-400">
                     Nenhum diácono cadastrado.{" "}
-                    <a href="/pessoas" className="underline text-blue-600">
-                      Cadastre em Pessoas.
-                    </a>
+                    <a href="/pessoas" className="underline text-blue-600">Cadastre em Pessoas.</a>
                   </p>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
                     {availableDeacons.map((name) => (
-                      <label
-                        key={name}
-                        className="flex items-center gap-2 cursor-pointer text-sm"
-                      >
+                      <label key={name} className="flex items-center gap-2 cursor-pointer text-sm">
                         <Checkbox
-                          checked={form.diaconosResponsaveis.includes(name)}
-                          onCheckedChange={() => toggleDeacon(name)}
+                          checked={diaconosPresentes.includes(name)}
+                          onCheckedChange={() => toggleDiaconoPresente(name)}
                         />
                         {name}
                       </label>
                     ))}
                   </div>
                 )}
-                {filledTithers.length > 10 && (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                    Atenção: há {filledTithers.length} membros dizimistas. O arquivo ODT suporta até 10 por página — os demais serão exibidos na 2ª página se o modelo tiver sido atualizado.
-                  </p>
-                )}
               </div>
+
+              {/* Responsáveis (sub-select, max 2, only from presentes) */}
+              {diaconosPresentes.length > 0 && (
+                <div className="flex flex-col gap-3 border-t pt-3">
+                  <div className="flex items-center justify-between">
+                  <Label>Responsáveis pelo Serviço * <span className="font-normal text-gray-400">(máx. 3)</span></Label>
+                    {form.diaconosResponsaveis.length >= 3 && (
+                      <span className="text-xs text-amber-600">Limite atingido</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {diaconosPresentes.map((name) => (
+                      <label key={name} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <Checkbox
+                          checked={form.diaconosResponsaveis.includes(name)}
+                          onCheckedChange={() => toggleDeacon(name)}
+                          disabled={!form.diaconosResponsaveis.includes(name) && form.diaconosResponsaveis.length >= 2}
+                        />
+                        {name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Responsável pelo Relatório */}
+              {form.diaconosResponsaveis.length > 0 && (
+                <div className="flex flex-col gap-2 border-t pt-3">
+                  <Label>Responsável pelo Relatório</Label>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-500">
+                      <input
+                        type="radio"
+                        name="responsavelPeloRelatorio"
+                        value=""
+                        checked={form.responsavelPeloRelatorio === ""}
+                        onChange={() => set("responsavelPeloRelatorio", "")}
+                      />
+                      Nenhum
+                    </label>
+                    {form.diaconosResponsaveis.map((name) => (
+                      <label key={name} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input
+                          type="radio"
+                          name="responsavelPeloRelatorio"
+                          value={name}
+                          checked={form.responsavelPeloRelatorio === name}
+                          onChange={() => set("responsavelPeloRelatorio", name)}
+                        />
+                        {name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -616,7 +734,7 @@ export default function NovoCultoPage() {
                 <Row label="Conversões" value={form.conversoes} />
                 <Row label="Batizados no Esp. Santo" value={form.batizadosEspirito} />
                 <Row label="Visitantes" value={form.visitantes} />
-                <Row label="Diáconos em serviço" value={form.diaconosServico} />
+                <Row label="Diáconos em serviço" value={diaconosPresentes.length} />
                 <Row label="Testemunhos de cura" value={form.testemunhoCura} />
                 <Row label="Crianças apresentadas" value={form.criancasApresentadas} />
               </Section>
@@ -635,10 +753,17 @@ export default function NovoCultoPage() {
 
               <Section label="Dízimos">
                 {filledTithers.map((t, i) => (
-                  <Row key={i} label={`${i + 1}. ${t.personName}`} value={fmtCurrency(t.value)} />
+                  <Row
+                    key={i}
+                    label={`${i + 1}. ${t.personName}${t.paymentMethod === "PIX" ? " (Pix)" : " (Dinheiro)"}`}
+                    value={fmtCurrency(t.value)}
+                  />
                 ))}
                 <Row label="Total dízimos" value={fmtCurrency(totalDizimos)} bold />
                 <Row label="Diácono(s) responsável(is)" value={form.diaconosResponsaveis.join(", ")} />
+                {form.responsavelPeloRelatorio && (
+                  <Row label="Responsável pelo relatório" value={form.responsavelPeloRelatorio} />
+                )}
               </Section>
 
               <Section label="Ofertas">
@@ -656,14 +781,17 @@ export default function NovoCultoPage() {
                   <p className="text-green-600 font-semibold text-center">
                     ✓ Relatório salvo!
                   </p>
-                  <a
-                    href={`/api/relatorios/${savedId}/download`}
-                    download
-                    className={cn(buttonVariants({ variant: "outline" }), "w-full justify-center")}
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={downloadOdt}
+                    disabled={downloading}
                   >
-                    <Download className="w-4 h-4 mr-2" />
+                    {downloading
+                      ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      : <Download className="w-4 h-4 mr-2" />}
                     Baixar Arquivo ODT
-                  </a>
+                  </Button>
                   <Button
                     variant="ghost"
                     className="w-full"

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { decrypt } from '@/lib/session'
 
-export default async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const token = request.cookies.get('session')?.value
   const payload = await decrypt(token)
 
@@ -13,5 +13,5 @@ export default async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!login|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!login|api/auth|_next/static|_next/image|favicon.ico).*)'],
 }

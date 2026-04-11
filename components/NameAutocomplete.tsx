@@ -31,8 +31,13 @@ export default function NameAutocomplete({
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const justSelectedRef = useRef(false);
 
   useEffect(() => {
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (value.length < 2) {
       setSuggestions([]);
@@ -87,6 +92,7 @@ export default function NameAutocomplete({
               key={p.id}
               className="px-3 py-2 text-sm cursor-pointer hover:bg-accent"
               onMouseDown={() => {
+                justSelectedRef.current = true;
                 onChange(p.name.toUpperCase());
                 setOpen(false);
               }}

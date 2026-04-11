@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       ...(role ? { roles: { has: role } } : {}),
     },
     orderBy: { name: "asc" },
-    take: 20,
+    ...(role === "diacono" ? {} : { take: 20 }),
   });
 
   return Response.json(people);

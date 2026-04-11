@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
     outrasEntradas,
     totalOfertasMissoes,
     diaconosResponsaveis,
+    responsavelPeloRelatorio,
     tithers,
   } = body;
 
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
     0
   );
   const arrecadacaoTotal =
+    totalDizimos +
     Number(totalOfertasGerais || 0) +
     Number(totalOfertasEspeciais || 0) +
     Number(outrasEntradas || 0);
@@ -95,11 +97,13 @@ export async function POST(req: NextRequest) {
         : null,
       totalDizimos: new Decimal(totalDizimos),
       diaconosResponsaveis: Array.isArray(diaconosResponsaveis) ? diaconosResponsaveis.filter(Boolean) : [],
+      responsavelPeloRelatorio: responsavelPeloRelatorio || null,
       tithers: {
         create: (tithers as {
           personName: string;
           chequeNumber?: string;
           bankNumber?: string;
+          paymentMethod?: "DINHEIRO" | "PIX" | null;
           value: number;
           order: number;
         }[])
@@ -108,6 +112,7 @@ export async function POST(req: NextRequest) {
             personName: t.personName.trim(),
             chequeNumber: t.chequeNumber || null,
             bankNumber: t.bankNumber || null,
+            paymentMethod: t.paymentMethod ?? null,
             value: new Decimal(t.value || 0),
             order: t.order,
           })),
