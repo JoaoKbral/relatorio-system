@@ -9,6 +9,7 @@ import { ArrowLeft, Pencil } from "lucide-react";
 import { Decimal } from "@prisma/client/runtime/client";
 import { cn } from "@/lib/utils";
 import DownloadButton from "@/components/DownloadButton";
+import DeleteButton from "@/components/DeleteButton";
 
 function fmtCurrency(v: Decimal | null) {
   if (!v) return "—";
@@ -71,6 +72,7 @@ export default async function ViewReportPage({
           <Pencil className="w-4 h-4 mr-1" />
           Editar
         </Link>
+        <DeleteButton id={report.id} />
         <DownloadButton id={report.id} dataCulto={report.dataCulto} />
       </div>
 
