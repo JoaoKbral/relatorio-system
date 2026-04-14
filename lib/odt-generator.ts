@@ -61,11 +61,32 @@ interface ReportData {
 }
 
 // Replaces repeated occurrences of {{tag}} with {{tag1}}, {{tag2}}, etc.
-// so each table row slot can receive a different value.
-function indexDuplicateTags(xml: string, tagName: string): string {
-  let i = 0;
+// starting from (offset + 1) so multi-page copies don't collide.
+function indexDuplicateTagsWithOffset(xml: string, tagName: string, offset: number): string {
+  let i = offset;
   return xml.replace(new RegExp(`\\{\\{${tagName}\\}\\}`, "g"), () => `{{${tagName}${++i}}}`);
 }
+
+// For tags already numbered in the template (e.g. {{nomeDizimista1}} … {{nomeDizimista10}}),
+// shift each number by (pageIndex * slotsPerPage) so pages don't share tag names.
+function reindexNumberedTags(
+  xml: string,
+  tagName: string,
+  pageIndex: number,
+  slotsPerPage: number
+): string {
+  if (pageIndex === 0) return xml; // first page: keep original numbers
+  for (let slot = 1; slot <= slotsPerPage; slot++) {
+    const newIndex = pageIndex * slotsPerPage + slot;
+    xml = xml.replaceAll(`{{${tagName}${slot}}}`, `{{${tagName}${newIndex}}}`);
+  }
+  return xml;
+}
+
+const TITHERS_PER_PAGE = 10;
+const PASTORS_PER_PAGE = 6;
+const VISITAS_PER_PAGE = 2;
+const DIACONOS_PER_PAGE = 2;
 
 export function generateOdt(report: ReportData): Buffer {
   const templatePath = path.join(
@@ -78,12 +99,51 @@ export function generateOdt(report: ReportData): Buffer {
 
   const zip = new PizZip(templateBuf);
 
-  // Number duplicate list tags so each row gets a distinct value
-  let xml = zip.file("word/document.xml")!.asText();
-  xml = indexDuplicateTags(xml, "pastorPresente");     // 6 slots
-  xml = indexDuplicateTags(xml, "visitaEspecial");     // 2 slots
-  xml = indexDuplicateTags(xml, "diaconoResponsavel"); // 2 slots
-  zip.file("word/document.xml", xml);
+  const sorted = [...report.tithers].sort((a, b) => a.order - b.order);
+  const numPages = Math.max(1, Math.ceil(sorted.length / TITHERS_PER_PAGE));
+
+  // --- Extract raw body content from the template XML ---
+  const bodyOpenTag = "<w:body>";
+  const bodyCloseTag = "</w:body>";
+  const rawXml = zip.file("word/document.xml")!.asText();
+  const bodyStart = rawXml.indexOf(bodyOpenTag) + bodyOpenTag.length;
+  const bodyEnd = rawXml.lastIndexOf(bodyCloseTag);
+
+  const beforeBody = rawXml.slice(0, bodyStart);
+  const afterBody = rawXml.slice(bodyEnd); // includes </w:body></w:document>
+  let rawBodyContent = rawXml.slice(bodyStart, bodyEnd);
+
+  // Separate trailing <w:sectPr> (page/section properties) — must appear only once at the end
+  const sectPrMatch = rawBodyContent.match(/<w:sectPr[\s\S]*?<\/w:sectPr>\s*$/);
+  let sectPr = "";
+  if (sectPrMatch) {
+    sectPr = sectPrMatch[0];
+    rawBodyContent = rawBodyContent.slice(0, rawBodyContent.length - sectPrMatch[0].length);
+  }
+
+  // Page break paragraph inserted between duplicated pages
+  const pageBreak = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+
+  // --- Build the full body XML, duplicating the template per page needed ---
+  let fullBodyContent = "";
+  for (let page = 0; page < numPages; page++) {
+    let pageContent = rawBodyContent;
+
+    // Index unnumbered repeated tags (each occurrence gets a unique number)
+    pageContent = indexDuplicateTagsWithOffset(pageContent, "pastorPresente", page * PASTORS_PER_PAGE);
+    pageContent = indexDuplicateTagsWithOffset(pageContent, "visitaEspecial", page * VISITAS_PER_PAGE);
+    pageContent = indexDuplicateTagsWithOffset(pageContent, "diaconoResponsavel", page * DIACONOS_PER_PAGE);
+
+    // Shift already-numbered tithe tags so pages don't clash
+    pageContent = reindexNumberedTags(pageContent, "nomeDizimista", page, TITHERS_PER_PAGE);
+    pageContent = reindexNumberedTags(pageContent, "valorDizimo", page, TITHERS_PER_PAGE);
+
+    if (page > 0) fullBodyContent += pageBreak;
+    fullBodyContent += pageContent;
+  }
+
+  fullBodyContent += sectPr;
+  zip.file("word/document.xml", beforeBody + fullBodyContent + afterBody);
 
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
@@ -92,30 +152,40 @@ export function generateOdt(report: ReportData): Buffer {
     nullGetter: () => "",
   });
 
-  // Build tither data (slots 1-10 for template)
+  // --- Build render data ---
+
+  // Tither slots across all pages
   const titherData: Record<string, string> = {};
-  const sorted = [...report.tithers].sort((a, b) => a.order - b.order);
-  for (let i = 1; i <= Math.max(10, sorted.length); i++) {
+  for (let i = 1; i <= numPages * TITHERS_PER_PAGE; i++) {
     const t = sorted[i - 1];
     titherData[`nomeDizimista${i}`] = t?.personName ?? "";
     titherData[`valorDizimo${i}`] = t ? formatCurrency(t.value) : "";
   }
 
-  // Build pastor/deacon/visit slot data (one name per numbered slot)
+  // Pastor slots — same names repeated for every page
   const pastorData: Record<string, string> = {};
-  for (let i = 1; i <= 6; i++) {
-    pastorData[`pastorPresente${i}`] = report.pastoresPresentes[i - 1] ?? "";
+  for (let page = 0; page < numPages; page++) {
+    for (let i = 1; i <= PASTORS_PER_PAGE; i++) {
+      pastorData[`pastorPresente${page * PASTORS_PER_PAGE + i}`] =
+        report.pastoresPresentes[i - 1] ?? "";
+    }
   }
 
-  const visitaData: Record<string, string> = {
-    visitaEspecial1: report.visitasEspeciais[0] ?? "",
-    visitaEspecial2: report.visitasEspeciais[1] ?? "",
-  };
+  // Visita especial slots — same values per page
+  const visitaData: Record<string, string> = {};
+  for (let page = 0; page < numPages; page++) {
+    visitaData[`visitaEspecial${page * VISITAS_PER_PAGE + 1}`] = report.visitasEspeciais[0] ?? "";
+    visitaData[`visitaEspecial${page * VISITAS_PER_PAGE + 2}`] = report.visitasEspeciais[1] ?? "";
+  }
 
-  const diaconoData: Record<string, string> = {
-    diaconoResponsavel1: report.diaconosResponsaveis[0] ?? "",
-    diaconoResponsavel2: report.diaconosResponsaveis[1] ?? "",
-  };
+  // Diacono slots — same values per page
+  const diaconoData: Record<string, string> = {};
+  for (let page = 0; page < numPages; page++) {
+    diaconoData[`diaconoResponsavel${page * DIACONOS_PER_PAGE + 1}`] =
+      report.diaconosResponsaveis[0] ?? "";
+    diaconoData[`diaconoResponsavel${page * DIACONOS_PER_PAGE + 2}`] =
+      report.diaconosResponsaveis[1] ?? "";
+  }
 
   doc.render({
     ...CHURCH_DATA,
@@ -143,7 +213,7 @@ export function generateOdt(report: ReportData): Buffer {
     ...titherData,
   });
 
-  // Normalize all font sizes to 10pt (20 half-points) in the generated document
+  // Normalize all font sizes to 9pt (18 half-points) in the generated document
   const outZip = doc.getZip();
   let docXml = outZip.file("word/document.xml")!.asText();
   docXml = docXml.replace(/<w:sz w:val="\d+"\s*\/>/g, '<w:sz w:val="18"/>');
