@@ -1,29 +1,24 @@
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/session";
+import { requireSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
 import { Decimal } from "@prisma/client/runtime/client";
 
-async function authed(req: NextRequest) {
-  return await decrypt(req.cookies.get("session")?.value)
-}
-
 export async function GET(req: NextRequest) {
-  if (!await authed(req)) return Response.json({ error: "Não autorizado" }, { status: 401 })
+  const result = await requireSession(req)
+  if (!result.ok) return result.response
+  const { churchId } = result.data
+
   const { searchParams } = new URL(req.url);
   const month = searchParams.get("month");
   const year = searchParams.get("year");
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { churchId };
   if (year) {
     const y = Number(year);
     const m = month ? Number(month) - 1 : 0;
-    const start = month
-      ? new Date(y, m, 1)
-      : new Date(y, 0, 1);
-    const end = month
-      ? new Date(y, m + 1, 0, 23, 59, 59)
-      : new Date(y, 11, 31, 23, 59, 59);
-    where.dataCulto = { gte: start, lte: end };
+    const start = month ? new Date(y, m, 1) : new Date(y, 0, 1);
+    const end = month ? new Date(y, m + 1, 1) : new Date(y + 1, 0, 1);
+    where.dataCulto = { gte: start, lt: end };
   }
 
   const reports = await prisma.report.findMany({
@@ -36,7 +31,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await authed(req)) return Response.json({ error: "Não autorizado" }, { status: 401 })
+  const result = await requireSession(req)
+  if (!result.ok) return result.response
+  const { churchId } = result.data
+
   const body = await req.json();
 
   const {
@@ -62,19 +60,19 @@ export async function POST(req: NextRequest) {
     tithers,
   } = body;
 
-  // Calculate totals
+  // Calculate totals using Decimal arithmetic to avoid float rounding errors
   const totalDizimos = (tithers as { value: number }[]).reduce(
-    (sum, t) => sum + Number(t.value || 0),
-    0
+    (sum, t) => sum.add(new Decimal(t.value || 0)),
+    new Decimal(0)
   );
-  const arrecadacaoTotal =
-    totalDizimos +
-    Number(totalOfertasGerais || 0) +
-    Number(totalOfertasEspeciais || 0) +
-    Number(outrasEntradas || 0);
+  const arrecadacaoTotal = totalDizimos
+    .add(new Decimal(totalOfertasGerais || 0))
+    .add(new Decimal(totalOfertasEspeciais || 0))
+    .add(new Decimal(outrasEntradas || 0));
 
   const report = await prisma.report.create({
     data: {
+      churchId,
       dataCulto: new Date(dataCulto),
       diaDaSemana,
       horario,
@@ -122,24 +120,32 @@ export async function POST(req: NextRequest) {
   });
 
   // Auto-create Pessoa for every new name encountered in this report
-  const allNames = [
-    body.pregador,
-    ...(body.pastoresPresentes ?? []),
-    ...(body.visitasEspeciais ?? []),
-    ...(body.diaconosResponsaveis ?? []),
-    ...(tithers as { personName: string }[])
-      .filter((t) => t.personName?.trim())
-      .map((t) => t.personName.trim()),
-  ]
-    .filter(Boolean)
-    .map((n: string) => n.trim().toUpperCase());
+  const allNames = [...new Set(
+    [
+      body.pregador,
+      ...(body.pastoresPresentes ?? []),
+      ...(body.visitasEspeciais ?? []),
+      ...(body.diaconosResponsaveis ?? []),
+      ...(tithers as { personName: string }[])
+        .filter((t) => t.personName?.trim())
+        .map((t) => t.personName.trim()),
+    ]
+      .filter(Boolean)
+      .map((n: string) => n.trim().toUpperCase())
+  )];
 
-  for (const name of [...new Set(allNames)]) {
-    const exists = await prisma.person.findFirst({
-      where: { name: { equals: name, mode: "insensitive" } },
+  if (allNames.length > 0) {
+    const existing = await prisma.person.findMany({
+      where: { churchId, name: { in: allNames, mode: "insensitive" } },
+      select: { name: true },
     });
-    if (!exists) {
-      await prisma.person.create({ data: { name, roles: ["membro"] } });
+    const existingNames = new Set(existing.map((p) => p.name.toUpperCase()));
+    const toCreate = allNames.filter((n) => !existingNames.has(n));
+    if (toCreate.length > 0) {
+      await prisma.person.createMany({
+        data: toCreate.map((name) => ({ churchId, name, roles: ["membro"] })),
+        skipDuplicates: true,
+      });
     }
   }
 

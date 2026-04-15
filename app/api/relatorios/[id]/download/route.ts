@@ -1,16 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import { generateOdt } from "@/lib/odt-generator";
-import { decrypt } from "@/lib/session";
+import { requireSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!await decrypt(req.cookies.get("session")?.value)) return Response.json({ error: "Não autorizado" }, { status: 401 })
+  const result = await requireSession(req)
+  if (!result.ok) return result.response
+  const { churchId } = result.data
+
   const { id } = await params;
   const report = await prisma.report.findUnique({
-    where: { id: Number(id) },
+    where: { id: Number(id), churchId },
     include: { tithers: { orderBy: { order: "asc" } } },
   });
 
@@ -18,7 +21,18 @@ export async function GET(
     return Response.json({ error: "Não encontrado" }, { status: 404 });
   }
 
-  const buf = generateOdt(report);
+  const church = await prisma.church.findUnique({ where: { id: churchId } });
+  if (!church) {
+    return Response.json({ error: "Igreja não encontrada" }, { status: 404 });
+  }
+
+  const buf = generateOdt(report, {
+    igrejaComCidadeEBairro: church.city,
+    CNPJ: church.cnpj ?? '',
+    nomePastorTitular: church.pastorName ?? '',
+    prontuarioTitular: church.pastorProntuario ?? '',
+  });
+
   const dateStr = new Date(report.dataCulto)
     .toLocaleDateString("pt-BR", { timeZone: "UTC" })
     .replace(/\//g, "-");

@@ -1,14 +1,17 @@
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/session";
+import { requireSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!await decrypt(req.cookies.get("session")?.value)) return Response.json({ error: "Não autorizado" }, { status: 401 })
+  const result = await requireSession(req)
+  if (!result.ok) return result.response
+  const { churchId } = result.data
+
   const { id } = await params;
-  const person = await prisma.person.findUnique({ where: { id: Number(id) } });
+  const person = await prisma.person.findUnique({ where: { id: Number(id), churchId } });
   if (!person) return Response.json({ error: "Não encontrado" }, { status: 404 });
   return Response.json(person);
 }
@@ -17,8 +20,17 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!await decrypt(req.cookies.get("session")?.value)) return Response.json({ error: "Não autorizado" }, { status: 401 })
+  const result = await requireSession(req)
+  if (!result.ok) return result.response
+  const { churchId } = result.data
+
   const { id } = await params;
+
+  const existing = await prisma.person.findUnique({ where: { id: Number(id) } });
+  if (!existing || existing.churchId !== churchId) {
+    return Response.json({ error: "Não encontrado" }, { status: 404 });
+  }
+
   const body = await req.json();
   const { name, roles, active } = body as {
     name?: string;
@@ -46,9 +58,17 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!await decrypt(req.cookies.get("session")?.value)) return Response.json({ error: "Não autorizado" }, { status: 401 })
+  const result = await requireSession(req)
+  if (!result.ok) return result.response
+  const { churchId } = result.data
+
   const { id } = await params;
-  // Soft delete
+
+  const existing = await prisma.person.findUnique({ where: { id: Number(id) } });
+  if (!existing || existing.churchId !== churchId) {
+    return Response.json({ error: "Não encontrado" }, { status: 404 });
+  }
+
   await prisma.person.update({
     where: { id: Number(id) },
     data: { active: false },

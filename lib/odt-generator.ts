@@ -7,13 +7,12 @@ import { Decimal } from "@prisma/client/runtime/client";
 // NOTE: Template must be REFC-template.docx (DOCX format).
 // To convert: open REFC-template.odt in LibreOffice → File → Save As → .docx
 
-// Fixed church data — sourced from environment variables
-const CHURCH_DATA = {
-  igrejaComCidadeEBairro: process.env.CHURCH_CITY ?? "",
-  CNPJ: process.env.CHURCH_CNPJ ?? "",
-  nomePastorTitular: process.env.CHURCH_PASTOR ?? "",
-  prontuarioTitular: process.env.CHURCH_PRONTUARIO ?? "",
-};
+interface ChurchData {
+  igrejaComCidadeEBairro: string;
+  CNPJ: string;
+  nomePastorTitular: string;
+  prontuarioTitular: string;
+}
 
 function formatCurrency(value: Decimal | null | undefined): string {
   if (!value) return "";
@@ -88,7 +87,7 @@ const PASTORS_PER_PAGE = 6;
 const VISITAS_PER_PAGE = 2;
 const DIACONOS_PER_PAGE = 2;
 
-export function generateOdt(report: ReportData): Buffer {
+export function generateOdt(report: ReportData, churchData: ChurchData): Buffer {
   const templatePath = path.join(
     process.cwd(),
     "public",
@@ -188,7 +187,7 @@ export function generateOdt(report: ReportData): Buffer {
   }
 
   doc.render({
-    ...CHURCH_DATA,
+    ...churchData,
     dataCulto: formatDate(report.dataCulto),
     diaDaSemana: report.diaDaSemana,
     horario: report.horario,

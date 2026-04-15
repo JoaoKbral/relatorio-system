@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/session";
+import { requireSession } from "@/lib/auth";
 import { Decimal } from "@prisma/client/runtime/client";
 import { NextRequest } from "next/server";
 
@@ -7,10 +7,13 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!await decrypt(req.cookies.get("session")?.value)) return Response.json({ error: "Não autorizado" }, { status: 401 })
+  const result = await requireSession(req)
+  if (!result.ok) return result.response
+  const { churchId } = result.data
+
   const { id } = await params;
   const report = await prisma.report.findUnique({
-    where: { id: Number(id) },
+    where: { id: Number(id), churchId },
     include: { tithers: { orderBy: { order: "asc" } } },
   });
   if (!report) return Response.json({ error: "Não encontrado" }, { status: 404 });
@@ -21,9 +24,18 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!await decrypt(req.cookies.get("session")?.value)) return Response.json({ error: "Não autorizado" }, { status: 401 })
+  const result = await requireSession(req)
+  if (!result.ok) return result.response
+  const { churchId } = result.data
+
   const { id } = await params;
   const body = await req.json();
+
+  // Verify the report belongs to this church before mutating
+  const existing = await prisma.report.findUnique({ where: { id: Number(id) } });
+  if (!existing || existing.churchId !== churchId) {
+    return Response.json({ error: "Não encontrado" }, { status: 404 });
+  }
 
   const {
     dataCulto, diaDaSemana, horario, pregador,
@@ -35,13 +47,13 @@ export async function PUT(
   } = body;
 
   const totalDizimos = (tithers as { value: number }[]).reduce(
-    (sum, t) => sum + Number(t.value || 0), 0
+    (sum, t) => sum.add(new Decimal(t.value || 0)),
+    new Decimal(0)
   );
-  const arrecadacaoTotal =
-    totalDizimos +
-    Number(totalOfertasGerais || 0) +
-    Number(totalOfertasEspeciais || 0) +
-    Number(outrasEntradas || 0);
+  const arrecadacaoTotal = totalDizimos
+    .add(new Decimal(totalOfertasGerais || 0))
+    .add(new Decimal(totalOfertasEspeciais || 0))
+    .add(new Decimal(outrasEntradas || 0));
 
   const [, report] = await prisma.$transaction([
     prisma.titheRecord.deleteMany({ where: { reportId: Number(id) } }),
@@ -91,8 +103,17 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!await decrypt(req.cookies.get("session")?.value)) return Response.json({ error: "Não autorizado" }, { status: 401 });
+  const result = await requireSession(req)
+  if (!result.ok) return result.response
+  const { churchId } = result.data
+
   const { id } = await params;
+
+  const existing = await prisma.report.findUnique({ where: { id: Number(id) } });
+  if (!existing || existing.churchId !== churchId) {
+    return Response.json({ error: "Não encontrado" }, { status: 404 });
+  }
+
   await prisma.report.delete({ where: { id: Number(id) } });
   return new Response(null, { status: 204 });
 }
