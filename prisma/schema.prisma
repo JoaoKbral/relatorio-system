@@ -70,14 +70,48 @@ model Person {
   active    Boolean  @default(true)
   churchId  Int
   church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  churchId  Int
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([churchId])
+  @@index([churchId, name])
 
   @@index([churchId])
   @@index([churchId, name])
 }
 
 model Report {
+  id                       Int           @id @default(autoincrement())
+  churchId                 Int
+  church                   Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  dataCulto                DateTime
+  diaDaSemana              String
+  horario                  String
+  pregador                 String
+  pastoresPresentes        String[]
+  visitasEspeciais         String[]
+  testemunhoCura           Int           @default(0)
+  conversoes               Int           @default(0)
+  batizadosEspirito        Int           @default(0)
+  visitantes               Int           @default(0)
+  diaconosServico          Int           @default(0)
+  criancasApresentadas     Int           @default(0)
+  totalPresentes           Int           @default(0)
+  totalOfertasGerais       Decimal       @db.Decimal(10, 2)
+  totalOfertasEspeciais    Decimal       @db.Decimal(10, 2)
+  outrasEntradas           Decimal       @db.Decimal(10, 2)
+  arrecadacaoTotal         Decimal       @db.Decimal(10, 2)
+  totalOfertasMissoes      Decimal?      @db.Decimal(10, 2)
+  totalDizimos             Decimal       @db.Decimal(10, 2)
+  diaconosResponsaveis     String[]
+  responsavelPeloRelatorio String?
+  tithers                  TitheRecord[]
+  createdAt                DateTime      @default(now())
+
+  @@index([churchId])
+  @@index([churchId, dataCulto])
   id                       Int           @id @default(autoincrement())
   churchId                 Int
   church                   Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
