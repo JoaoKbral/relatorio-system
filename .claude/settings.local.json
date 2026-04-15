@@ -20,7 +20,8 @@
       "Bash(node:*)",
       "Bash(powershell -Command ':*)",
       "Bash(rm \"C:/Users/joaor/.claude/agents/devops-engineer.md\")",
-      "Bash(rm -rf \"C:/Users/joaor/.claude/skills/design-system\" \"C:/Users/joaor/.claude/skills/microservices\" \"C:/Users/joaor/.claude/skills/containerization\" \"C:/Users/joaor/.claude/skills/ci-cd\" \"C:/Users/joaor/.claude/skills/system-design\")"
+      "Bash(rm -rf \"C:/Users/joaor/.claude/skills/design-system\" \"C:/Users/joaor/.claude/skills/microservices\" \"C:/Users/joaor/.claude/skills/containerization\" \"C:/Users/joaor/.claude/skills/ci-cd\" \"C:/Users/joaor/.claude/skills/system-design\")",
+      "Bash(ts-node\" 2>/dev/null || echo \"none found\")"
     ]
   },
   "prefersReducedMotion": false

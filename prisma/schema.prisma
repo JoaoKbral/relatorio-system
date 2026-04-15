@@ -4,6 +4,64 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  PAID
+}
+
+enum ChurchStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MEMBER
+}
+
+enum PaymentMethod {
+  DINHEIRO
+  PIX
+}
+
+model Church {
+  id               Int          @id @default(autoincrement())
+  name             String
+  city             String
+  cnpj             String?
+  pastorName       String?
+  pastorProntuario String?
+  plan             Plan         @default(FREE)
+  status           ChurchStatus @default(ACTIVE)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  users   User[]
+  people  Person[]
+  reports Report[]
+
+  @@map("churches")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole @default(MEMBER)
+  churchId     Int
+  church       Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([churchId])
+  @@map("users")
 }
 
 model Person {
@@ -11,40 +69,45 @@ model Person {
   name      String
   roles     String[]
   active    Boolean  @default(true)
+  churchId  Int
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([churchId])
+  @@index([churchId, name])
 }
 
 model Report {
-  id                    Int           @id @default(autoincrement())
-  dataCulto             DateTime
-  diaDaSemana           String
-  horario               String
-  pregador              String
-  pastoresPresentes     String[]
-  visitasEspeciais      String[]
-  testemunhoCura        Int           @default(0)
-  conversoes            Int           @default(0)
-  batizadosEspirito     Int           @default(0)
-  visitantes            Int           @default(0)
-  diaconosServico       Int           @default(0)
-  criancasApresentadas  Int           @default(0)
-  totalPresentes        Int           @default(0)
-  totalOfertasGerais    Decimal       @db.Decimal(10, 2)
-  totalOfertasEspeciais Decimal       @db.Decimal(10, 2)
-  outrasEntradas        Decimal       @db.Decimal(10, 2)
-  arrecadacaoTotal      Decimal       @db.Decimal(10, 2)
-  totalOfertasMissoes   Decimal?      @db.Decimal(10, 2)
-  totalDizimos          Decimal       @db.Decimal(10, 2)
-  diaconosResponsaveis      String[]
-  responsavelPeloRelatorio  String?
-  tithers                   TitheRecord[]
-  createdAt             DateTime      @default(now())
-}
+  id                       Int           @id @default(autoincrement())
+  churchId                 Int
+  church                   Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  dataCulto                DateTime
+  diaDaSemana              String
+  horario                  String
+  pregador                 String
+  pastoresPresentes        String[]
+  visitasEspeciais         String[]
+  testemunhoCura           Int           @default(0)
+  conversoes               Int           @default(0)
+  batizadosEspirito        Int           @default(0)
+  visitantes               Int           @default(0)
+  diaconosServico          Int           @default(0)
+  criancasApresentadas     Int           @default(0)
+  totalPresentes           Int           @default(0)
+  totalOfertasGerais       Decimal       @db.Decimal(10, 2)
+  totalOfertasEspeciais    Decimal       @db.Decimal(10, 2)
+  outrasEntradas           Decimal       @db.Decimal(10, 2)
+  arrecadacaoTotal         Decimal       @db.Decimal(10, 2)
+  totalOfertasMissoes      Decimal?      @db.Decimal(10, 2)
+  totalDizimos             Decimal       @db.Decimal(10, 2)
+  diaconosResponsaveis     String[]
+  responsavelPeloRelatorio String?
+  tithers                  TitheRecord[]
+  createdAt                DateTime      @default(now())
 
-enum PaymentMethod {
-  DINHEIRO
-  PIX
+  @@index([churchId])
+  @@index([churchId, dataCulto])
 }
 
 model TitheRecord {

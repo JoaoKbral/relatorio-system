@@ -5,11 +5,14 @@ if (!secretKey) throw new Error('SESSION_SECRET env var is required')
 const encodedKey = new TextEncoder().encode(secretKey)
 
 export type SessionPayload = {
+  userId: number
   email: string
+  churchId: number
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'MEMBER'
 }
 
 export async function encrypt(payload: SessionPayload): Promise<string> {
-  return new SignJWT(payload)
+  return new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
@@ -22,7 +25,7 @@ export async function decrypt(token: string | undefined): Promise<SessionPayload
     const { payload } = await jwtVerify(token, encodedKey, {
       algorithms: ['HS256'],
     })
-    return payload as SessionPayload
+    return payload as unknown as SessionPayload
   } catch {
     return null
   }
