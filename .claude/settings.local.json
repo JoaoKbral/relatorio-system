@@ -24,7 +24,8 @@
       "Bash(ts-node\" 2>/dev/null || echo \"none found\")",
       "Bash(ls *.ts *.json)",
       "Bash(curl *)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} igrejas encontradas: {[x[\\\\\"name\\\\\"] for x in d]}'\\)\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} igrejas encontradas: {[x[\\\\\"name\\\\\"] for x in d]}'\\)\")",
+      "Bash(DATABASE_URL=\"\" SESSION_SECRET=\"\" npm run build)"
     ]
   },
   "prefersReducedMotion": false
