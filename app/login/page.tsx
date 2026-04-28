@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Church } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,6 @@ import {
 } from "@/components/ui/card";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -35,7 +33,7 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        router.push("/");
+        window.location.href = "/";
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error ?? "Credenciais inválidas.");
