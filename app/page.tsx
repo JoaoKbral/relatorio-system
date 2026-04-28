@@ -6,12 +6,20 @@ import ReportCard from "@/components/ReportCard";
 import { prisma } from "@/lib/prisma";
 import { PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { cookies } from "next/headers";
+import { decrypt } from "@/lib/session";
 
 export default async function HomePage() {
-  const recent = await prisma.report.findMany({
-    orderBy: { dataCulto: "desc" },
-    take: 5,
-  });
+  const cookieStore = await cookies();
+  const session = await decrypt(cookieStore.get("session")?.value);
+
+  const recent = session
+    ? await prisma.report.findMany({
+        where: { churchId: session.churchId },
+        orderBy: { dataCulto: "desc" },
+        take: 5,
+      })
+    : [];
 
   return (
     <div className="flex flex-col gap-6">

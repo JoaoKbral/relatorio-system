@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Church } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,8 @@ export default function LoginPage() {
       if (res.ok) {
         router.push("/");
       } else {
-        setError("Credenciais inválidas.");
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Credenciais inválidas.");
       }
     } catch {
       setError("Erro ao conectar. Tente novamente.");
@@ -54,9 +56,9 @@ export default function LoginPage() {
             <Church className="w-7 h-7" aria-hidden="true" />
           </div>
           <h1 className="text-xl font-bold text-gray-900 text-center leading-tight">
-            IEQ Canto do Mar
+            Relatório de Culto
           </h1>
-          <p className="text-sm text-gray-500">Relatório de Culto</p>
+          <p className="text-sm text-gray-500">Sistema de gestão de cultos</p>
         </div>
 
         <Card>
@@ -124,6 +126,13 @@ export default function LoginPage() {
             </form>
           </CardContent>
         </Card>
+
+        <p className="text-center text-sm text-gray-500 mt-4">
+          Sua igreja ainda não tem conta?{" "}
+          <Link href="/registrar" className="text-blue-700 underline underline-offset-2">
+            Cadastrar igreja
+          </Link>
+        </p>
       </div>
     </div>
   );

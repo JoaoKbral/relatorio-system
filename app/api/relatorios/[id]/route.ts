@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/auth";
+import { requireSession, requireAdmin } from "@/lib/auth";
 import { Decimal } from "@prisma/client/runtime/client";
 import { NextRequest } from "next/server";
 
@@ -103,7 +103,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireSession(req)
+  const result = await requireAdmin(req)
   if (!result.ok) return result.response
   const { churchId } = result.data
 

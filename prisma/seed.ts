@@ -1,13 +1,16 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import bcrypt from 'bcryptjs'
 
-const prisma = new PrismaClient()
+if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL env var is required')
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
+const prisma = new PrismaClient({ adapter })
 
 async function main() {
   console.log('Starting seed...')
 
   // 1. Create the first church (IEQ Canto do Mar)
-  let church = await prisma.church.findFirst({ where: { name: 'IEQ Canto do Mar' } })
+  let church = await prisma.church.findFirst({ where: { name: process.env.CHURCH_NAME! } })
 
   if (!church) {
     church = await prisma.church.create({

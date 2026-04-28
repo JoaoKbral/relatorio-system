@@ -8,7 +8,10 @@ export async function GET(req: NextRequest) {
 
   const { data: session } = result
 
-  const church = await prisma.church.findUnique({ where: { id: session.churchId } })
+  const church = await prisma.church.findUnique({
+    where: { id: session.churchId },
+    select: { name: true, city: true, pastorName: true, pastorProntuario: true },
+  })
 
   return NextResponse.json({
     userId: session.userId,

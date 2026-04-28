@@ -15,6 +15,10 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Nenhum relatório selecionado" }, { status: 400 });
   }
 
+  if (ids.length > 100) {
+    return Response.json({ error: "Máximo de 100 relatórios por download" }, { status: 400 });
+  }
+
   const [reports, church] = await Promise.all([
     prisma.report.findMany({
       where: { id: { in: ids }, churchId },

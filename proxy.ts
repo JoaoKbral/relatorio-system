@@ -23,9 +23,9 @@ export async function proxy(req: NextRequest) {
   const session = await decrypt(req.cookies.get('session')?.value)
 
   if (AUTH_PAGES.has(pathname)) {
-    return session
-      ? NextResponse.redirect(new URL('/', req.url))
-      : NextResponse.next()
+    if (!session) return NextResponse.next()
+    const home = session.role === 'SUPER_ADMIN' ? '/admin' : '/'
+    return NextResponse.redirect(new URL(home, req.url))
   }
 
   if (!session) {
@@ -33,6 +33,11 @@ export async function proxy(req: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
     return NextResponse.redirect(new URL('/login', req.url))
+  }
+
+  // Redirect SUPER_ADMIN from the regular homepage to the admin panel
+  if (pathname === '/' && session.role === 'SUPER_ADMIN') {
+    return NextResponse.redirect(new URL('/admin', req.url))
   }
 
   if (
@@ -49,6 +54,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }

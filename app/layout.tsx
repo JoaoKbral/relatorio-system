@@ -3,15 +3,16 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import Link from "next/link";
-import { Church, FileText, Users } from "lucide-react";
+import { Church, FileText, Users, Settings } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { cookies } from "next/headers";
 import { decrypt } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
 
 const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Relatório de Culto — IEQ Canto do Mar",
+  title: "Relatório de Culto",
   description: "Sistema de relatório estatístico e financeiro de culto",
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Culto" },
@@ -31,6 +32,17 @@ export default async function RootLayout({
   const cookieStore = await cookies();
   const session = await decrypt(cookieStore.get("session")?.value);
 
+  let churchName = "Relatório de Culto";
+  if (session?.churchId) {
+    const church = await prisma.church.findUnique({
+      where: { id: session.churchId },
+      select: { name: true },
+    });
+    if (church) churchName = church.name;
+  }
+
+  const isAdmin = session?.role === "ADMIN" || session?.role === "SUPER_ADMIN";
+
   return (
     <html lang="pt-BR" className={geist.className}>
       <body className="min-h-screen bg-gray-50 flex flex-col">
@@ -40,7 +52,7 @@ export default async function RootLayout({
             <Church className="w-6 h-6 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="font-bold leading-tight text-sm sm:text-base">
-                IEQ — Canto do Mar
+                {churchName}
               </p>
               <p className="text-blue-200 text-xs leading-tight">
                 Relatório de Culto
@@ -78,6 +90,15 @@ export default async function RootLayout({
               <Users className="w-5 h-5" />
               Pessoas
             </Link>
+            {isAdmin && (
+              <Link
+                href="/configuracoes"
+                className="flex-1 flex flex-col items-center py-3 gap-1 text-xs text-gray-600 hover:text-blue-700 transition-colors"
+              >
+                <Settings className="w-5 h-5" />
+                Config.
+              </Link>
+            )}
             {session && <LogoutButton />}
           </div>
         </nav>

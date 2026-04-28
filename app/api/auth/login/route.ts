@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyPassword } from '@/lib/password'
+import { verifyPassword, hashPassword } from '@/lib/password'
 import { encrypt } from '@/lib/session'
+
+// Dummy hash used when the user is not found, to prevent timing-based email enumeration.
+// We run bcrypt anyway so the response time is indistinguishable from a bad-password response.
+let _dummyHash: string | null = null
+async function getDummyHash() {
+  if (!_dummyHash) _dummyHash = await hashPassword('dummy-constant-value')
+  return _dummyHash
+}
 
 export async function POST(request: NextRequest) {
   const { email, password } = await request.json()
@@ -15,11 +23,14 @@ export async function POST(request: NextRequest) {
     include: { church: true },
   })
 
+  // Always run bcrypt to prevent timing-based email enumeration
   if (!user || !user.active) {
+    await verifyPassword(String(password), await getDummyHash())
     return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
   }
 
   if (user.church.status !== 'ACTIVE') {
+    await verifyPassword(String(password), await getDummyHash())
     return NextResponse.json({ error: 'Igreja inativa ou suspensa' }, { status: 403 })
   }
 
