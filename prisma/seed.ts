@@ -51,29 +51,23 @@ async function main() {
     console.log(`Admin user already exists: ${adminEmail}`)
   }
 
-  // 3. Create the SUPER_ADMIN user
-  //    SUPER_ADMIN belongs to a dedicated platform church record or to IEQ's church.
-  //    Per the plan: SUPER_ADMIN is a separate account. We attach it to IEQ's church for now.
+  // 3. Create/update the SUPER_ADMIN user — no churchId (platform-level admin)
   const superAdminEmail = process.env.SEED_SUPER_ADMIN_EMAIL?.toLowerCase().trim()
   const superAdminPassword = process.env.SEED_SUPER_ADMIN_PASSWORD
   if (!superAdminEmail || !superAdminPassword) throw new Error('SEED_SUPER_ADMIN_EMAIL and SEED_SUPER_ADMIN_PASSWORD env vars are required')
 
-  const existingSuperAdmin = await prisma.user.findUnique({ where: { email: superAdminEmail } })
-  if (!existingSuperAdmin) {
-    const passwordHash = await bcrypt.hash(superAdminPassword, 12)
-    await prisma.user.create({
-      data: {
-        email: superAdminEmail,
-        passwordHash,
-        name: 'Super Administrador',
-        role: 'SUPER_ADMIN',
-        churchId: church.id,
-      },
-    })
-    console.log(`Created SUPER_ADMIN user: ${superAdminEmail}`)
-  } else {
-    console.log(`SUPER_ADMIN user already exists: ${superAdminEmail}`)
-  }
+  const superAdminHash = await bcrypt.hash(superAdminPassword, 12)
+  await prisma.user.upsert({
+    where: { email: superAdminEmail },
+    update: { churchId: null, name: 'Super Administrador', role: 'SUPER_ADMIN', passwordHash: superAdminHash },
+    create: {
+      email: superAdminEmail,
+      passwordHash: superAdminHash,
+      name: 'Super Administrador',
+      role: 'SUPER_ADMIN',
+    },
+  })
+  console.log(`Upserted SUPER_ADMIN user: ${superAdminEmail}`)
 
   // 4. Backfill churchId on all existing Person and Report records.
   //    During the two-step migration, churchId is added as nullable first. After seed,

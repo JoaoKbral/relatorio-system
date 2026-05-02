@@ -1,7 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getSession } from "@/lib/session";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
@@ -42,8 +43,11 @@ export default async function ViewReportPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getSession();
+  if (!session) redirect("/login");
+
   const report = await prisma.report.findUnique({
-    where: { id: Number(id) },
+    where: { id: Number(id), churchId: session.churchId },
     include: { tithers: { orderBy: { order: "asc" } } },
   });
 

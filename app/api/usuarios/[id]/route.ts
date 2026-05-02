@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/auth'
+import { requireChurchAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireAdmin(req)
+  const result = await requireChurchAdmin(req)
   if (!result.ok) return result.response
 
   const { id } = await params
@@ -34,7 +34,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireAdmin(req)
+  const result = await requireChurchAdmin(req)
   if (!result.ok) return result.response
 
   const { id } = await params

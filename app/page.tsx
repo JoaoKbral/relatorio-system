@@ -6,14 +6,12 @@ import ReportCard from "@/components/ReportCard";
 import { prisma } from "@/lib/prisma";
 import { PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { cookies } from "next/headers";
-import { decrypt } from "@/lib/session";
+import { getSession } from "@/lib/session";
 
 export default async function HomePage() {
-  const cookieStore = await cookies();
-  const session = await decrypt(cookieStore.get("session")?.value);
+  const session = await getSession();
 
-  const recent = session
+  const recent = session?.churchId
     ? await prisma.report.findMany({
         where: { churchId: session.churchId },
         orderBy: { dataCulto: "desc" },

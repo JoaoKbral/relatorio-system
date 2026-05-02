@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/auth";
+import { requireChurchSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
 import { Decimal } from "@prisma/client/runtime/client";
 
 export async function GET(req: NextRequest) {
-  const result = await requireSession(req)
+  const result = await requireChurchSession(req)
   if (!result.ok) return result.response
   const { churchId } = result.data
 
@@ -24,14 +24,21 @@ export async function GET(req: NextRequest) {
   const reports = await prisma.report.findMany({
     where,
     orderBy: { dataCulto: "desc" },
-    include: { tithers: { orderBy: { order: "asc" } } },
+    select: {
+      id: true,
+      dataCulto: true,
+      diaDaSemana: true,
+      pregador: true,
+      totalPresentes: true,
+      horario: true,
+    },
   });
 
   return Response.json(reports);
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requireSession(req)
+  const result = await requireChurchSession(req)
   if (!result.ok) return result.response
   const { churchId } = result.data
 

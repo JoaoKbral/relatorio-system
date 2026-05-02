@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import { requireSession, requireAdmin } from "@/lib/auth";
+import { requireChurchSession, requireChurchAdmin } from "@/lib/auth";
 import { NextRequest } from "next/server";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireSession(req)
+  const result = await requireChurchSession(req)
   if (!result.ok) return result.response
   const { churchId } = result.data
 
@@ -20,7 +20,7 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireAdmin(req)
+  const result = await requireChurchAdmin(req)
   if (!result.ok) return result.response
   const { churchId } = result.data
 
@@ -58,7 +58,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireAdmin(req)
+  const result = await requireChurchAdmin(req)
   if (!result.ok) return result.response
   const { churchId } = result.data
 

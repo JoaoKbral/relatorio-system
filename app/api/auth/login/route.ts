@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
   }
 
-  if (user.role !== 'SUPER_ADMIN' && user.church.status !== 'ACTIVE') {
+  if (user.role !== 'SUPER_ADMIN' && user.church?.status !== 'ACTIVE') {
     await verifyPassword(String(password), await getDummyHash())
     return NextResponse.json({ error: 'Igreja inativa ou suspensa' }, { status: 403 })
   }
@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
   const token = await encrypt({
     userId: user.id,
     email: user.email,
-    churchId: user.churchId,
+    churchId: user.churchId ?? null,
+    churchName: user.church?.name ?? null,
     role: user.role,
   })
 

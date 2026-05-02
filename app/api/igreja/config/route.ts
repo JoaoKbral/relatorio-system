@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/auth'
+import { requireChurchAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { encrypt } from '@/lib/session'
 
 export async function GET(req: NextRequest) {
-  const result = await requireAdmin(req)
+  const result = await requireChurchAdmin(req)
   if (!result.ok) return result.response
 
   const church = await prisma.church.findUnique({ where: { id: result.data.churchId } })
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const result = await requireAdmin(req)
+  const result = await requireChurchAdmin(req)
   if (!result.ok) return result.response
 
   const { name, city, cnpj, pastorName, pastorProntuario } = await req.json()
@@ -27,5 +28,14 @@ export async function PUT(req: NextRequest) {
     },
   })
 
-  return NextResponse.json(church)
+  const token = await encrypt({ ...result.data, churchName: church.name })
+  const response = NextResponse.json(church)
+  response.cookies.set('session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7,
+  })
+  return response
 }

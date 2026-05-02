@@ -1,11 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { generateOdt } from "@/lib/odt-generator";
-import { requireSession } from "@/lib/auth";
+import { requireChurchSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
 import PizZip from "pizzip";
 
 export async function POST(req: NextRequest) {
-  const result = await requireSession(req)
+  const result = await requireChurchSession(req)
   if (!result.ok) return result.response
   const { churchId } = result.data
 

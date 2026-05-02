@@ -4,11 +4,11 @@
 // The GET handler below should query the ERP API instead of (or in addition to)
 // Prisma, and the POST handler can be removed or restricted to non-ERP records.
 import { prisma } from "@/lib/prisma";
-import { requireSession } from "@/lib/auth";
+import { requireChurchSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
-  const result = await requireSession(req)
+  const result = await requireChurchSession(req)
   if (!result.ok) return result.response
   const { churchId } = result.data
 
@@ -24,14 +24,14 @@ export async function GET(req: NextRequest) {
       ...(role ? { roles: { has: role } } : {}),
     },
     orderBy: { name: "asc" },
-    ...(role === "diacono" ? {} : { take: 20 }),
+    take: 50,
   });
 
   return Response.json(people);
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requireSession(req)
+  const result = await requireChurchSession(req)
   if (!result.ok) return result.response
   const { churchId } = result.data
 

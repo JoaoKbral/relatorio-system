@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/auth'
+import { requireChurchAdmin } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/password'
 
 export async function GET(req: NextRequest) {
-  const result = await requireAdmin(req)
+  const result = await requireChurchAdmin(req)
   if (!result.ok) return result.response
 
   const users = await prisma.user.findMany({
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requireAdmin(req)
+  const result = await requireChurchAdmin(req)
   if (!result.ok) return result.response
 
   const { name, email, password, role } = await req.json()

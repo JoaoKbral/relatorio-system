@@ -1,9 +1,12 @@
 import { SignJWT, jwtVerify } from 'jose'
+import { cache } from 'react'
+import { cookies } from 'next/headers'
 
 export type SessionPayload = {
   userId: number
   email: string
-  churchId: number
+  churchId: number | null
+  churchName: string | null
   role: 'SUPER_ADMIN' | 'ADMIN' | 'MEMBER'
 }
 
@@ -29,8 +32,9 @@ export async function decrypt(token: string | undefined): Promise<SessionPayload
     })
     if (
       typeof payload['userId'] !== 'number' ||
-      typeof payload['churchId'] !== 'number' ||
+      (payload['churchId'] !== null && typeof payload['churchId'] !== 'number') ||
       typeof payload['email'] !== 'string' ||
+      (payload['churchName'] !== null && typeof payload['churchName'] !== 'string') ||
       !['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(payload['role'] as string)
     ) return null
     return payload as unknown as SessionPayload
@@ -38,3 +42,9 @@ export async function decrypt(token: string | undefined): Promise<SessionPayload
     return null
   }
 }
+
+// Memoized per-request: both layout and pages share one JWT verify call per render tree
+export const getSession = cache(async (): Promise<SessionPayload | null> => {
+  const cookieStore = await cookies()
+  return decrypt(cookieStore.get('session')?.value)
+})

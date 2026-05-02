@@ -5,9 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import Link from "next/link";
 import { Church, FileText, Users, Settings } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
-import { cookies } from "next/headers";
-import { decrypt } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -29,19 +27,9 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const session = await decrypt(cookieStore.get("session")?.value);
-
-  let churchName = "Relatório de Culto";
-  if (session?.churchId) {
-    const church = await prisma.church.findUnique({
-      where: { id: session.churchId },
-      select: { name: true },
-    });
-    if (church) churchName = church.name;
-  }
-
-  const isAdmin = session?.role === "ADMIN" || session?.role === "SUPER_ADMIN";
+  const session = await getSession();
+  const churchName = session?.churchName ?? "Relatório de Culto";
+  const isSuperAdmin = session?.role === "SUPER_ADMIN";
 
   return (
     <html lang="pt-BR" className={geist.className}>
@@ -76,21 +64,25 @@ export default async function RootLayout({
               <Church className="w-5 h-5" />
               Início
             </Link>
-            <Link
-              href="/relatorios"
-              className="flex-1 flex flex-col items-center py-3 gap-1 text-xs text-gray-600 hover:text-blue-700 transition-colors"
-            >
-              <FileText className="w-5 h-5" />
-              Histórico
-            </Link>
-            <Link
-              href="/pessoas"
-              className="flex-1 flex flex-col items-center py-3 gap-1 text-xs text-gray-600 hover:text-blue-700 transition-colors"
-            >
-              <Users className="w-5 h-5" />
-              Pessoas
-            </Link>
-            {isAdmin && (
+            {!isSuperAdmin && (
+              <Link
+                href="/relatorios"
+                className="flex-1 flex flex-col items-center py-3 gap-1 text-xs text-gray-600 hover:text-blue-700 transition-colors"
+              >
+                <FileText className="w-5 h-5" />
+                Histórico
+              </Link>
+            )}
+            {!isSuperAdmin && (
+              <Link
+                href="/pessoas"
+                className="flex-1 flex flex-col items-center py-3 gap-1 text-xs text-gray-600 hover:text-blue-700 transition-colors"
+              >
+                <Users className="w-5 h-5" />
+                Pessoas
+              </Link>
+            )}
+            {session && (
               <Link
                 href="/configuracoes"
                 className="flex-1 flex flex-col items-center py-3 gap-1 text-xs text-gray-600 hover:text-blue-700 transition-colors"

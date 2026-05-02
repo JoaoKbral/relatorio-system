@@ -33,3 +33,26 @@ export async function requireSuperAdmin(req: NextRequest): Promise<AuthResult<Se
 export function churchScope(session: SessionPayload) {
   return { churchId: session.churchId }
 }
+
+export type ChurchSession = Omit<SessionPayload, 'churchId' | 'churchName'> & {
+  churchId: number
+  churchName: string
+}
+
+export async function requireChurchSession(req: NextRequest): Promise<AuthResult<ChurchSession>> {
+  const result = await requireSession(req)
+  if (!result.ok) return result
+  if (result.data.churchId === null) {
+    return { ok: false, response: NextResponse.json({ error: 'Acesso negado' }, { status: 403 }) }
+  }
+  return { ok: true, data: result.data as ChurchSession }
+}
+
+export async function requireChurchAdmin(req: NextRequest): Promise<AuthResult<ChurchSession>> {
+  const result = await requireAdmin(req)
+  if (!result.ok) return result
+  if (result.data.churchId === null) {
+    return { ok: false, response: NextResponse.json({ error: 'Acesso negado' }, { status: 403 }) }
+  }
+  return { ok: true, data: result.data as ChurchSession }
+}
