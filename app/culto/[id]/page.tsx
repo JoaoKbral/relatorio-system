@@ -47,7 +47,7 @@ export default async function ViewReportPage({
   if (!session) redirect("/login");
 
   const report = await prisma.report.findUnique({
-    where: { id: Number(id), churchId: session.churchId },
+    where: { id: Number(id), churchId: session.churchId ?? undefined },
     include: { tithers: { orderBy: { order: "asc" } } },
   });
 

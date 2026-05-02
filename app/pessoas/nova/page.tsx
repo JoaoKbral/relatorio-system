@@ -23,7 +23,7 @@ export default function NovaPessoaPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [name, setName] = useState(searchParams.get("name") ?? "");
-  const [capitalize, setCapitalize] = useState(false);
+  const [capitalize, setCapitalize] = useState(true);
   const [roles, setRoles] = useState<string[]>(["membro"]);
   const [saving, setSaving] = useState(false);
 
