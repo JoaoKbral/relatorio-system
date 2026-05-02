@@ -74,7 +74,7 @@ export default function NameAutocomplete({
       <Input
         id={id}
         value={value}
-        onChange={(e) => onChange(e.target.value.toUpperCase())}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
         autoComplete="off"
@@ -93,7 +93,7 @@ export default function NameAutocomplete({
               className="px-3 py-2 text-sm cursor-pointer hover:bg-accent"
               onMouseDown={() => {
                 justSelectedRef.current = true;
-                onChange(p.name.toUpperCase());
+                onChange(p.name);
                 setOpen(false);
               }}
             >

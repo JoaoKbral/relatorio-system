@@ -127,27 +127,33 @@ export async function POST(req: NextRequest) {
   });
 
   // Auto-create Pessoa for every new name encountered in this report
-  const allNames = [...new Set(
-    [
-      body.pregador,
-      ...(body.pastoresPresentes ?? []),
-      ...(body.visitasEspeciais ?? []),
-      ...(body.diaconosResponsaveis ?? []),
-      ...(tithers as { personName: string }[])
-        .filter((t) => t.personName?.trim())
-        .map((t) => t.personName.trim()),
-    ]
-      .filter(Boolean)
-      .map((n: string) => n.trim().toUpperCase())
-  )];
+  const rawNames = [
+    body.pregador,
+    ...(body.pastoresPresentes ?? []),
+    ...(body.visitasEspeciais ?? []),
+    ...(body.diaconosResponsaveis ?? []),
+    ...(tithers as { personName: string }[])
+      .filter((t) => t.personName?.trim())
+      .map((t) => t.personName.trim()),
+  ]
+    .filter(Boolean)
+    .map((n: string) => n.trim())
+
+  // Deduplicate case-insensitively, preserving original casing
+  const seenKeys = new Set<string>()
+  const allNames: string[] = []
+  for (const name of rawNames) {
+    const key = name.toUpperCase()
+    if (!seenKeys.has(key)) { seenKeys.add(key); allNames.push(name) }
+  }
 
   if (allNames.length > 0) {
     const existing = await prisma.person.findMany({
       where: { churchId, name: { in: allNames, mode: "insensitive" } },
       select: { name: true },
     });
-    const existingNames = new Set(existing.map((p) => p.name.toUpperCase()));
-    const toCreate = allNames.filter((n) => !existingNames.has(n));
+    const existingKeys = new Set(existing.map((p) => p.name.toUpperCase()))
+    const toCreate = allNames.filter((n) => !existingKeys.has(n.toUpperCase()));
     if (toCreate.length > 0) {
       await prisma.person.createMany({
         data: toCreate.map((name) => ({ churchId, name, roles: ["membro"] })),

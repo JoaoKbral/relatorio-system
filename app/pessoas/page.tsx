@@ -130,11 +130,11 @@ export default function PessoasPage() {
           <p className="text-gray-400">Nenhuma pessoa encontrada.</p>
           {query && (
             <Link
-              href={`/pessoas/nova?name=${encodeURIComponent(query.toUpperCase())}`}
+              href={`/pessoas/nova?name=${encodeURIComponent(query)}`}
               className={cn(buttonVariants({ variant: "outline" }))}
             >
               <PlusCircle className="w-4 h-4 mr-2" />
-              Adicionar &ldquo;{query.toUpperCase()}&rdquo;
+              Adicionar &ldquo;{query}&rdquo;
             </Link>
           )}
         </div>

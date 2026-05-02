@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 
 const ROLES = [
   { id: "pastor", label: "Pastor" },
@@ -22,9 +22,19 @@ const ROLES = [
 export default function NovaPessoaPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [name, setName] = useState((searchParams.get("name") ?? "").toUpperCase());
+  const [name, setName] = useState(searchParams.get("name") ?? "");
+  const [capitalize, setCapitalize] = useState(false);
   const [roles, setRoles] = useState<string[]>(["membro"]);
   const [saving, setSaving] = useState(false);
+
+  function handleNameChange(value: string) {
+    setName(capitalize ? toTitleCase(value) : value);
+  }
+
+  function handleCapitalizeToggle(checked: boolean) {
+    setCapitalize(checked);
+    if (checked) setName((prev) => toTitleCase(prev));
+  }
 
   function toggleRole(id: string) {
     setRoles((prev) =>
@@ -76,10 +86,19 @@ export default function NovaPessoaPage() {
             <Input
               id="name"
               value={name}
-              onChange={(e) => setName(e.target.value.toUpperCase())}
-              placeholder="Ex: JOÃO DA SILVA"
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="Ex: João da Silva"
               autoFocus
             />
+            <label className="flex items-center gap-2 mt-1 cursor-pointer select-none">
+              <Checkbox
+                checked={capitalize}
+                onCheckedChange={(v) => handleCapitalizeToggle(v === true)}
+              />
+              <span className="text-xs text-gray-500">
+                Capitalizar inicial de cada palavra
+              </span>
+            </label>
           </div>
 
           <div className="flex flex-col gap-2">
