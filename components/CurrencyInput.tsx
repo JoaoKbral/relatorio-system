@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 
 interface Props {
@@ -9,7 +9,10 @@ interface Props {
   placeholder?: string;
   id?: string;
   disabled?: boolean;
+  onBlur?: () => void;
 }
+
+const MAX_CENTS = 99_999_999; // R$ 999.999,99
 
 export default function CurrencyInput({
   value,
@@ -17,18 +20,35 @@ export default function CurrencyInput({
   placeholder = "0,00",
   id,
   disabled,
+  onBlur,
 }: Props) {
-  const [raw, setRaw] = useState(value > 0 ? String(value) : "");
+  const [cents, setCents] = useState(() => Math.round(value * 100));
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow only digits, comma, and period
-    let v = e.target.value.replace(/[^0-9.,]/g, "");
-    // Normalize comma to period for parsing
-    const normalized = v.replace(",", ".");
-    setRaw(v);
-    const num = parseFloat(normalized);
-    onChange(isNaN(num) ? 0 : num);
-  };
+  useEffect(() => {
+    setCents(Math.round(value * 100));
+  }, [value]);
+
+  function updateCents(next: number) {
+    setCents(next);
+    onChange(next / 100);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key >= "0" && e.key <= "9") {
+      e.preventDefault();
+      updateCents(Math.min(cents * 10 + Number(e.key), MAX_CENTS));
+    } else if (e.key === "Backspace" || e.key === "Delete") {
+      e.preventDefault();
+      updateCents(Math.floor(cents / 10));
+    } else if (!["Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+      e.preventDefault();
+    }
+  }
+
+  const display = (cents / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   return (
     <div className="relative">
@@ -38,11 +58,13 @@ export default function CurrencyInput({
       <Input
         id={id}
         type="text"
-        inputMode="decimal"
-        value={raw}
-        onChange={handleChange}
+        inputMode="numeric"
+        value={display}
+        onChange={() => {}}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
+        onBlur={onBlur}
         className="pl-9"
       />
     </div>

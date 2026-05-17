@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 
 interface Person {
@@ -16,6 +17,7 @@ interface Props {
   role?: string;
   id?: string;
   disabled?: boolean;
+  onBlur?: () => void;
 }
 
 export default function NameAutocomplete({
@@ -25,13 +27,32 @@ export default function NameAutocomplete({
   role,
   id,
   disabled,
+  onBlur,
 }: Props) {
   const [suggestions, setSuggestions] = useState<Person[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const justSelectedRef = useRef(false);
+
+  function updatePos() {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setDropdownPos({ top: rect.bottom, left: rect.left, width: rect.width });
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (justSelectedRef.current) {
@@ -58,17 +79,6 @@ export default function NameAutocomplete({
     }, 250);
   }, [value, role]);
 
-  // Close on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
   return (
     <div ref={containerRef} className="relative">
       <Input
@@ -79,29 +89,45 @@ export default function NameAutocomplete({
         disabled={disabled}
         autoComplete="off"
         className="w-full"
+        onBlur={() => {
+          if (justSelectedRef.current) return;
+          setOpen(false);
+          onBlur?.();
+        }}
       />
       {loading && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
           ...
         </div>
       )}
-      {open && suggestions.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-48 overflow-auto">
-          {suggestions.map((p) => (
-            <li
-              key={p.id}
-              className="px-3 py-2 text-sm cursor-pointer hover:bg-accent"
-              onMouseDown={() => {
-                justSelectedRef.current = true;
-                onChange(p.name);
-                setOpen(false);
-              }}
-            >
-              {p.name}
-            </li>
-          ))}
-        </ul>
-      )}
+      {open && suggestions.length > 0 && typeof window !== "undefined" &&
+        createPortal(
+          <ul
+            style={{
+              position: "fixed",
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              width: dropdownPos.width,
+              zIndex: 9999,
+            }}
+            className="rounded-md border bg-white shadow-lg max-h-48 overflow-auto"
+          >
+            {suggestions.map((p) => (
+              <li
+                key={p.id}
+                className="px-3 py-2 text-sm cursor-pointer hover:bg-accent"
+                onMouseDown={() => {
+                  justSelectedRef.current = true;
+                  onChange(p.name);
+                  setOpen(false);
+                }}
+              >
+                {p.name}
+              </li>
+            ))}
+          </ul>,
+          document.body
+        )}
     </div>
   );
 }

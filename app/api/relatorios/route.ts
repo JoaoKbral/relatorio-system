@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireChurchSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
 import { Decimal } from "@prisma/client/runtime/client";
+import { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const result = await requireChurchSession(req)
@@ -139,21 +140,21 @@ export async function POST(req: NextRequest) {
     .filter(Boolean)
     .map((n: string) => n.trim())
 
-  // Deduplicate case-insensitively, preserving original casing
+  // Deduplicate accent+case-insensitively, preserving original casing
+  const strip = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
   const seenKeys = new Set<string>()
   const allNames: string[] = []
   for (const name of rawNames) {
-    const key = name.toUpperCase()
+    const key = strip(name)
     if (!seenKeys.has(key)) { seenKeys.add(key); allNames.push(name) }
   }
 
   if (allNames.length > 0) {
-    const existing = await prisma.person.findMany({
-      where: { churchId, name: { in: allNames, mode: "insensitive" } },
-      select: { name: true },
-    });
-    const existingKeys = new Set(existing.map((p) => p.name.toUpperCase()))
-    const toCreate = allNames.filter((n) => !existingKeys.has(n.toUpperCase()));
+    const existing = await prisma.$queryRaw<{ name: string }[]>(
+      Prisma.sql`SELECT name FROM "Person" WHERE "churchId" = ${churchId} AND unaccent(name) ILIKE ANY(ARRAY[${Prisma.join(allNames.map((n) => Prisma.sql`unaccent(${n})`), ",")}])`
+    );
+    const existingKeys = new Set(existing.map((p) => strip(p.name)));
+    const toCreate = allNames.filter((n) => !existingKeys.has(strip(n)));
     if (toCreate.length > 0) {
       await prisma.person.createMany({
         data: toCreate.map((name) => ({ churchId, name, roles: ["membro"] })),

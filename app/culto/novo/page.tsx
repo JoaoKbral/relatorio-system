@@ -235,12 +235,28 @@ export default function NovoCultoPage() {
     setForm((prev) => {
       const tithers = [...prev.tithers];
       tithers[index] = { ...tithers[index], [field]: value };
-      // Auto-add new row when the last row's name gets filled
-      if (field === "personName" && String(value).trim() && index === tithers.length - 1) {
-        tithers.push(emptyTither(tithers.length + 1));
+      const t = tithers[index];
+      const isLast = index === tithers.length - 1;
+      if (
+        isLast &&
+        (field === "personName" || field === "value") &&
+        t.personName.trim() &&
+        Number(t.value) > 0
+      ) {
+        tithers.push({ ...emptyTither(tithers.length + 1), paymentMethod: t.paymentMethod });
       }
       return { ...prev, tithers };
     });
+  }
+
+  function handleTitherNomeBlur(i: number) {
+    const name = form.tithers[i]?.personName.trim();
+    if (!name) return;
+    fetch("/api/pessoas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, roles: ["membro"] }),
+    }).catch(() => {});
   }
 
   function addTither() {
@@ -542,6 +558,7 @@ export default function NovoCultoPage() {
                         value={t.personName}
                         onChange={(v) => setTither(i, "personName", v)}
                         placeholder="Nome do membro"
+                        onBlur={() => handleTitherNomeBlur(i)}
                       />
                     </div>
                     <div className="flex flex-col gap-1">

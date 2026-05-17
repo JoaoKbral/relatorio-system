@@ -6,6 +6,17 @@
 import { prisma } from "@/lib/prisma";
 import { requireChurchSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
+
+type PersonRow = {
+  id: number;
+  name: string;
+  roles: string[];
+  active: boolean;
+  churchId: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export async function GET(req: NextRequest) {
   const result = await requireChurchSession(req)
@@ -16,16 +27,16 @@ export async function GET(req: NextRequest) {
   const q = searchParams.get("q") ?? "";
   const role = searchParams.get("role");
 
-  const people = await prisma.person.findMany({
-    where: {
-      churchId,
-      active: true,
-      ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
-      ...(role ? { roles: { has: role } } : {}),
-    },
-    orderBy: { name: "asc" },
-    take: 50,
-  });
+  const conditions: Prisma.Sql[] = [
+    Prisma.sql`"churchId" = ${churchId}`,
+    Prisma.sql`active = true`,
+  ];
+  if (q) conditions.push(Prisma.sql`unaccent(name) ILIKE unaccent(${`%${q}%`})`);
+  if (role) conditions.push(Prisma.sql`${role} = ANY(roles)`);
+
+  const people = await prisma.$queryRaw<PersonRow[]>(
+    Prisma.sql`SELECT id, name, roles, active, "churchId", "createdAt", "updatedAt" FROM "Person" WHERE ${Prisma.join(conditions, " AND ")} ORDER BY name ASC LIMIT 50`
+  );
 
   return Response.json(people);
 }
@@ -41,6 +52,11 @@ export async function POST(req: NextRequest) {
   if (!name?.trim()) {
     return Response.json({ error: "Nome é obrigatório" }, { status: 400 });
   }
+
+  const existing = await prisma.$queryRaw<PersonRow[]>(
+    Prisma.sql`SELECT id, name, roles, active, "churchId", "createdAt", "updatedAt" FROM "Person" WHERE "churchId" = ${churchId} AND active = true AND unaccent(name) ILIKE unaccent(${name.trim()}) LIMIT 1`
+  );
+  if (existing.length > 0) return Response.json(existing[0]);
 
   const person = await prisma.person.create({
     data: { churchId, name: name.trim(), roles: roles ?? [] },
