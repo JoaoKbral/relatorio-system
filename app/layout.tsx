@@ -3,7 +3,7 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import Link from "next/link";
-import { Church, FileText, Users, Settings } from "lucide-react";
+import { Church, FileText, Users, Settings, HandCoins } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { getSession } from "@/lib/session";
 
@@ -80,6 +80,15 @@ export default async function RootLayout({
               >
                 <Users className="w-5 h-5" />
                 Pessoas
+              </Link>
+            )}
+            {!isSuperAdmin && (
+              <Link
+                href="/dizimistas"
+                className="flex-1 flex flex-col items-center py-3 gap-1 text-xs text-gray-600 hover:text-blue-700 transition-colors"
+              >
+                <HandCoins className="w-5 h-5" />
+                Dízimos
               </Link>
             )}
             {session && (
