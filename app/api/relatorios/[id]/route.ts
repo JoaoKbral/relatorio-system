@@ -43,7 +43,7 @@ export async function PUT(
     testemunhoCura, conversoes, batizadosEspirito, visitantes,
     diaconosServico, criancasApresentadas, totalPresentes,
     totalOfertasGerais, totalOfertasEspeciais, outrasEntradas,
-    totalOfertasMissoes, diaconosResponsaveis, responsavelPeloRelatorio, tithers,
+    totalOfertasMissoes, diaconosResponsaveis, diaconosEmServico, responsavelPeloRelatorio, tithers,
   } = body;
 
   const totalDizimos = (tithers as { value: number }[]).reduce(
@@ -77,6 +77,7 @@ export async function PUT(
         arrecadacaoTotal: new Decimal(arrecadacaoTotal),
         totalOfertasMissoes: totalOfertasMissoes ? new Decimal(totalOfertasMissoes) : null,
         totalDizimos: new Decimal(totalDizimos),
+        diaconosEmServico: Array.isArray(diaconosEmServico) ? diaconosEmServico.filter(Boolean) : [],
         diaconosResponsaveis: Array.isArray(diaconosResponsaveis) ? diaconosResponsaveis.filter(Boolean) : [],
         responsavelPeloRelatorio: responsavelPeloRelatorio || null,
         tithers: {

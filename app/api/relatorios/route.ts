@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
     outrasEntradas,
     totalOfertasMissoes,
     diaconosResponsaveis,
+    diaconosEmServico,
     responsavelPeloRelatorio,
     tithers,
   } = body;
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
         ? new Decimal(totalOfertasMissoes)
         : null,
       totalDizimos: new Decimal(totalDizimos),
+      diaconosEmServico: Array.isArray(diaconosEmServico) ? diaconosEmServico.filter(Boolean) : [],
       diaconosResponsaveis: Array.isArray(diaconosResponsaveis) ? diaconosResponsaveis.filter(Boolean) : [],
       responsavelPeloRelatorio: responsavelPeloRelatorio || null,
       tithers: {

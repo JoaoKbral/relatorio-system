@@ -54,6 +54,7 @@ interface ReportData {
   arrecadacaoTotal: Decimal;
   totalOfertasMissoes: Decimal | null;
   totalDizimos: Decimal;
+  diaconosEmServico: string[];
   diaconosResponsaveis: string[];
   responsavelPeloRelatorio?: string | null;
   tithers: TitheRecord[];

@@ -205,12 +205,10 @@ export default function NovoCultoPage() {
     setDiaconosPresentes((prev) => {
       const removing = prev.includes(name);
       if (removing) {
-        // Remove from responsaveis and relatorio if they depended on this deacon
-        setForm((f) => {
-          const newResp = f.diaconosResponsaveis.filter((d) => d !== name);
-          const newRelat = newResp.includes(f.responsavelPeloRelatorio) ? f.responsavelPeloRelatorio : "";
-          return { ...f, diaconosResponsaveis: newResp, responsavelPeloRelatorio: newRelat };
-        });
+        setForm((f) => ({
+          ...f,
+          diaconosResponsaveis: f.diaconosResponsaveis.filter((d) => d !== name),
+        }));
         return prev.filter((n) => n !== name);
       }
       return [...prev, name];
@@ -224,8 +222,7 @@ export default function NovoCultoPage() {
       const newResp = already
         ? prev.diaconosResponsaveis.filter((d) => d !== name)
         : [...prev.diaconosResponsaveis, name];
-      const newRelat = newResp.includes(prev.responsavelPeloRelatorio) ? prev.responsavelPeloRelatorio : "";
-      return { ...prev, diaconosResponsaveis: newResp, responsavelPeloRelatorio: newRelat };
+      return { ...prev, diaconosResponsaveis: newResp };
     });
   }
 
@@ -294,6 +291,7 @@ export default function NovoCultoPage() {
         body: JSON.stringify({
           ...form,
           diaconosServico: diaconosPresentes.length,
+          diaconosEmServico: diaconosPresentes,
           pastoresPresentes: [...form.pastoresCheckbox, ...form.pastoresExtras.filter(Boolean)],
         }),
       });
@@ -653,8 +651,8 @@ export default function NovoCultoPage() {
               {diaconosPresentes.length > 0 && (
                 <div className="flex flex-col gap-3 border-t pt-3">
                   <div className="flex items-center justify-between">
-                  <Label>Responsáveis pelo Serviço * <span className="font-normal text-gray-400">(máx. 3)</span></Label>
-                    {form.diaconosResponsaveis.length >= 3 && (
+                    <Label>Responsáveis pelo Serviço * <span className="font-normal text-gray-400">(máx. 2)</span></Label>
+                    {form.diaconosResponsaveis.length >= 2 && (
                       <span className="text-xs text-amber-600">Limite atingido</span>
                     )}
                   </div>
@@ -674,33 +672,14 @@ export default function NovoCultoPage() {
               )}
 
               {/* Responsável pelo Relatório */}
-              {form.diaconosResponsaveis.length > 0 && (
+              {diaconosPresentes.length > 0 && (
                 <div className="flex flex-col gap-2 border-t pt-3">
                   <Label>Responsável pelo Relatório</Label>
-                  <div className="flex flex-col gap-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-500">
-                      <input
-                        type="radio"
-                        name="responsavelPeloRelatorio"
-                        value=""
-                        checked={form.responsavelPeloRelatorio === ""}
-                        onChange={() => set("responsavelPeloRelatorio", "")}
-                      />
-                      Nenhum
-                    </label>
-                    {form.diaconosResponsaveis.map((name) => (
-                      <label key={name} className="flex items-center gap-2 cursor-pointer text-sm">
-                        <input
-                          type="radio"
-                          name="responsavelPeloRelatorio"
-                          value={name}
-                          checked={form.responsavelPeloRelatorio === name}
-                          onChange={() => set("responsavelPeloRelatorio", name)}
-                        />
-                        {name}
-                      </label>
-                    ))}
-                  </div>
+                  <NameAutocomplete
+                    value={form.responsavelPeloRelatorio}
+                    onChange={(val) => set("responsavelPeloRelatorio", val)}
+                    placeholder="Nome do responsável..."
+                  />
                 </div>
               )}
             </>

@@ -102,6 +102,7 @@ model Report {
   arrecadacaoTotal         Decimal       @db.Decimal(10, 2)
   totalOfertasMissoes      Decimal?      @db.Decimal(10, 2)
   totalDizimos             Decimal       @db.Decimal(10, 2)
+  diaconosEmServico        String[]
   diaconosResponsaveis     String[]
   responsavelPeloRelatorio String?
   tithers                  TitheRecord[]

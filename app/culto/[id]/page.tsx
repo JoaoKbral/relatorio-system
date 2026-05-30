@@ -98,7 +98,14 @@ export default async function ViewReportPage({
         <Row label="Conversões" value={report.conversoes} />
         <Row label="Batizados no Esp. Santo" value={report.batizadosEspirito} />
         <Row label="Visitantes" value={report.visitantes} />
-        <Row label="Diáconos em serviço" value={report.diaconosServico} />
+        <Row
+          label="Diáconos em serviço"
+          value={
+            report.diaconosEmServico.length > 0
+              ? report.diaconosEmServico.join(", ")
+              : report.diaconosServico
+          }
+        />
         <Row label="Testemunhos de cura" value={report.testemunhoCura} />
         <Row label="Crianças apresentadas" value={report.criancasApresentadas} />
       </Section>
