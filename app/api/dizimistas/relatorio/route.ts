@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       select: {
         personName: true,
         value: true,
+        paymentMethod: true,
         report: { select: { dataCulto: true } },
       },
       orderBy: { report: { dataCulto: "asc" } },
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest) {
       personName: r.personName.trim(),
       date: r.report.dataCulto.toISOString().slice(0, 10),
       value: Number(r.value).toFixed(2),
+      paymentMethod: r.paymentMethod ?? null,
     }));
 
     return Response.json(flat);

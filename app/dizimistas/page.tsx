@@ -27,6 +27,7 @@ interface TitheEntry {
   personName: string;
   date: string;
   value: string;
+  paymentMethod: string | null;
 }
 
 interface ComparativoRow {
@@ -59,6 +60,12 @@ const formatNum = (value: string | number) => {
 function formatDate(iso: string) {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
+}
+
+function fmtPayment(method: string | null): string {
+  if (method === "DINHEIRO") return "Dinheiro";
+  if (method === "PIX") return "PIX";
+  return "—";
 }
 
 export default function DizimistasPage() {
@@ -151,20 +158,20 @@ export default function DizimistasPage() {
 
   // Derived groupings from flat dayData
   const byDate = useMemo(() => {
-    const map = new Map<string, { date: string; tithers: { personName: string; value: string }[] }>();
+    const map = new Map<string, { date: string; tithers: { personName: string; value: string; paymentMethod: string | null }[] }>();
     for (const r of filteredDayData) {
       if (!map.has(r.date)) map.set(r.date, { date: r.date, tithers: [] });
-      map.get(r.date)!.tithers.push({ personName: r.personName, value: r.value });
+      map.get(r.date)!.tithers.push({ personName: r.personName, value: r.value, paymentMethod: r.paymentMethod });
     }
     return Array.from(map.values());
   }, [filteredDayData]);
 
   const byPerson = useMemo(() => {
-    const map = new Map<string, { personName: string; entries: { date: string; value: string }[] }>();
+    const map = new Map<string, { personName: string; entries: { date: string; value: string; paymentMethod: string | null }[] }>();
     for (const r of filteredDayData) {
       const key = r.personName.toUpperCase();
       if (!map.has(key)) map.set(key, { personName: r.personName, entries: [] });
-      map.get(key)!.entries.push({ date: r.date, value: r.value });
+      map.get(key)!.entries.push({ date: r.date, value: r.value, paymentMethod: r.paymentMethod });
     }
     return Array.from(map.values()).sort((a, b) =>
       a.personName.localeCompare(b.personName, "pt-BR")
@@ -258,10 +265,10 @@ export default function DizimistasPage() {
           doc.text(formatDate(group.date), 14, cursor + 6);
           doc.setFont("helvetica", "normal");
           autoTable(doc, {
-            head: [["#", "Nome", "Valor"]],
+            head: [["#", "Nome", "Forma", "Valor"]],
             body: [
-              ...group.tithers.map((t, i) => [i + 1, t.personName, formatBRL(t.value)]),
-              ["", "Subtotal", formatBRL(subtotal)],
+              ...group.tithers.map((t, i) => [i + 1, t.personName, fmtPayment(t.paymentMethod), formatBRL(t.value)]),
+              ["", "Subtotal", "", formatBRL(subtotal)],
             ],
             startY: cursor + 8,
             styles: { fontSize: 9 },
@@ -278,10 +285,10 @@ export default function DizimistasPage() {
           doc.text(group.personName, 14, cursor + 6);
           doc.setFont("helvetica", "normal");
           autoTable(doc, {
-            head: [["Data", "Valor"]],
+            head: [["Data", "Forma", "Valor"]],
             body: [
-              ...group.entries.map((e) => [formatDate(e.date), formatBRL(e.value)]),
-              ["Subtotal", formatBRL(subtotal)],
+              ...group.entries.map((e) => [formatDate(e.date), fmtPayment(e.paymentMethod), formatBRL(e.value)]),
+              ["Subtotal", "", formatBRL(subtotal)],
             ],
             startY: cursor + 8,
             styles: { fontSize: 9 },
@@ -310,26 +317,26 @@ export default function DizimistasPage() {
       const rows: (string | number)[][] = [];
 
       if (subMode === "por_data") {
-        rows.push(["Data", "#", "Nome", "Valor (R$)"]);
+        rows.push(["Data", "#", "Nome", "Forma", "Valor (R$)"]);
         for (const group of byDate) {
           const subtotal = group.tithers.reduce((s, t) => s + Number(t.value), 0);
           group.tithers.forEach((t, i) => {
-            rows.push([i === 0 ? formatDate(group.date) : "", i + 1, t.personName, Number(t.value)]);
+            rows.push([i === 0 ? formatDate(group.date) : "", i + 1, t.personName, fmtPayment(t.paymentMethod), Number(t.value)]);
           });
-          rows.push(["", "", "Subtotal", subtotal]);
+          rows.push(["", "", "Subtotal", "", subtotal]);
         }
+        rows.push(["", "", "TOTAL GERAL", "", grandTotal]);
       } else {
-        rows.push(["Nome", "Data", "Valor (R$)"]);
+        rows.push(["Nome", "Data", "Forma", "Valor (R$)"]);
         for (const group of byPerson) {
           const subtotal = group.entries.reduce((s, e) => s + Number(e.value), 0);
           group.entries.forEach((e, i) => {
-            rows.push([i === 0 ? group.personName : "", formatDate(e.date), Number(e.value)]);
+            rows.push([i === 0 ? group.personName : "", formatDate(e.date), fmtPayment(e.paymentMethod), Number(e.value)]);
           });
-          rows.push(["", "Subtotal", subtotal]);
+          rows.push(["", "Subtotal", "", subtotal]);
         }
+        rows.push(["", "TOTAL GERAL", "", grandTotal]);
       }
-
-      rows.push(["", "", "TOTAL GERAL", grandTotal]);
       const ws = XLSX.utils.aoa_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Dizimistas");
@@ -631,6 +638,7 @@ export default function DizimistasPage() {
                       <tr>
                         <th className="px-3 py-2 text-left w-8">#</th>
                         <th className="px-3 py-2 text-left">Nome</th>
+                        <th className="px-3 py-2 text-left">Forma</th>
                         <th className="px-3 py-2 text-right">Valor</th>
                       </tr>
                     </thead>
@@ -640,7 +648,7 @@ export default function DizimistasPage() {
                         return (
                           <Fragment key={group.date}>
                             <tr className="bg-blue-50">
-                              <td colSpan={3} className="px-3 py-2 font-semibold text-blue-700 text-xs uppercase tracking-wide">
+                              <td colSpan={4} className="px-3 py-2 font-semibold text-blue-700 text-xs uppercase tracking-wide">
                                 {formatDate(group.date)}
                               </td>
                             </tr>
@@ -648,6 +656,7 @@ export default function DizimistasPage() {
                               <tr key={i} className="hover:bg-gray-50 border-t border-gray-100">
                                 <td className="px-3 py-2 text-gray-400">{i + 1}</td>
                                 <td className="px-3 py-2 font-medium">{t.personName}</td>
+                                <td className="px-3 py-2 text-gray-500 text-sm">{fmtPayment(t.paymentMethod)}</td>
                                 <td className="px-3 py-2 text-right text-green-700 font-medium">
                                   {formatBRL(t.value)}
                                 </td>
@@ -656,6 +665,7 @@ export default function DizimistasPage() {
                             <tr className="bg-gray-50 border-t border-gray-200">
                               <td className="px-3 py-2" />
                               <td className="px-3 py-2 text-xs text-gray-500 font-medium">Subtotal</td>
+                              <td className="px-3 py-2" />
                               <td className="px-3 py-2 text-right text-xs font-semibold text-green-800">
                                 {formatBRL(subtotal)}
                               </td>
@@ -670,6 +680,7 @@ export default function DizimistasPage() {
                     <thead className="bg-gray-50 text-gray-600 font-medium">
                       <tr>
                         <th className="px-3 py-2 text-left">Data</th>
+                        <th className="px-3 py-2 text-left">Forma</th>
                         <th className="px-3 py-2 text-right">Valor</th>
                       </tr>
                     </thead>
@@ -679,13 +690,14 @@ export default function DizimistasPage() {
                         return (
                           <Fragment key={group.personName}>
                             <tr className="bg-blue-50">
-                              <td colSpan={2} className="px-3 py-2 font-semibold text-blue-700 text-xs uppercase tracking-wide">
+                              <td colSpan={3} className="px-3 py-2 font-semibold text-blue-700 text-xs uppercase tracking-wide">
                                 {group.personName}
                               </td>
                             </tr>
                             {group.entries.map((e, i) => (
                               <tr key={i} className="hover:bg-gray-50 border-t border-gray-100">
                                 <td className="px-3 py-2 text-gray-600">{formatDate(e.date)}</td>
+                                <td className="px-3 py-2 text-gray-500 text-sm">{fmtPayment(e.paymentMethod)}</td>
                                 <td className="px-3 py-2 text-right text-green-700 font-medium">
                                   {formatBRL(e.value)}
                                 </td>
@@ -693,6 +705,7 @@ export default function DizimistasPage() {
                             ))}
                             <tr className="bg-gray-50 border-t border-gray-200">
                               <td className="px-3 py-2 text-xs text-gray-500 font-medium">Subtotal</td>
+                              <td className="px-3 py-2" />
                               <td className="px-3 py-2 text-right text-xs font-semibold text-green-800">
                                 {formatBRL(subtotal)}
                               </td>
@@ -705,7 +718,7 @@ export default function DizimistasPage() {
                 )}
                 <tfoot>
                   <tr className="bg-gray-100 border-t-2 border-gray-300">
-                    <td className="px-3 py-2 font-semibold text-gray-700" colSpan={subMode === "por_pessoa" ? 1 : 2}>
+                    <td className="px-3 py-2 font-semibold text-gray-700" colSpan={subMode === "por_pessoa" ? 2 : 3}>
                       Total Geral
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-green-800">
