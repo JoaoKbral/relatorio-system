@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { Decimal } from "@prisma/client/runtime/client";
 import { cn } from "@/lib/utils";
+import { reportWithPeople } from "@/lib/reports";
 import DownloadButton from "@/components/DownloadButton";
 import DeleteButton from "@/components/DeleteButton";
 
@@ -41,16 +42,28 @@ export default async function ViewReportPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
   const session = await getSession();
   if (!session) redirect("/login");
+  // Reports belong to a church; a session without one (super-admin) sees none.
+  if (session.churchId === null) notFound();
 
-  const report = await prisma.report.findUnique({
-    where: { id: Number(id), churchId: session.churchId ?? undefined },
-    include: { tithers: { orderBy: { order: "asc" } } },
+  const id = Number((await params).id);
+  if (!Number.isInteger(id) || id <= 0) notFound();
+
+  const report = await prisma.report.findFirst({
+    where: { id, churchId: session.churchId },
+    include: reportWithPeople,
   });
-
   if (!report) notFound();
+
+  // Old reports that the migration could not link still have names only.
+  const deaconsInService = report.deacons.length
+    ? report.deacons.map((d) => d.person.name)
+    : report.diaconosEmServico;
+  const responsibleDeacons = report.deacons.length
+    ? report.deacons.filter((d) => d.responsible).map((d) => d.person.name)
+    : report.diaconosResponsaveis;
+  const treasurer = report.treasurer?.name ?? report.responsavelPeloRelatorio;
 
   const dateStr = new Date(report.dataCulto).toLocaleDateString("pt-BR", {
     timeZone: "UTC",
@@ -76,7 +89,7 @@ export default async function ViewReportPage({
           Editar
         </Link>
         <DeleteButton id={report.id} />
-        <DownloadButton id={report.id} dataCulto={report.dataCulto} />
+        <DownloadButton id={report.id} dataCulto={report.dataCulto} horario={report.horario} />
       </div>
 
       <Section title="Culto">
@@ -100,9 +113,7 @@ export default async function ViewReportPage({
         <Row
           label="Diáconos em serviço"
           value={
-            report.diaconosEmServico.length > 0
-              ? report.diaconosEmServico.join(", ")
-              : report.diaconosServico
+            deaconsInService.length > 0 ? deaconsInService.join(", ") : report.diaconosServico
           }
         />
         <Row label="Testemunhos de cura" value={report.testemunhoCura} />
@@ -122,12 +133,10 @@ export default async function ViewReportPage({
           ))
         )}
         <Row label="Total dízimos" value={fmtCurrency(report.totalDizimos)} />
-        {report.diaconosResponsaveis.length > 0 && (
-          <Row label="Diácono(s) responsável(is)" value={report.diaconosResponsaveis.join(", ")} />
+        {responsibleDeacons.length > 0 && (
+          <Row label="Diácono(s) responsável(is)" value={responsibleDeacons.join(", ")} />
         )}
-        {report.responsavelPeloRelatorio && (
-          <Row label="Responsável pelo relatório" value={report.responsavelPeloRelatorio} />
-        )}
+        <Row label="Tesoureiro" value={treasurer || "Não informado"} />
       </Section>
 
       <Section title="Ofertas">

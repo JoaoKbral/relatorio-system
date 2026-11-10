@@ -1,30 +1,36 @@
 import { prisma } from "@/lib/prisma";
 import { requireChurchSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
-import { Decimal } from "@prisma/client/runtime/client";
-import { Prisma } from "@prisma/client";
+import {
+  checkReportPeople,
+  deaconRows,
+  ensurePeopleExist,
+  parseReportInput,
+  reportFields,
+  titherRows,
+} from "@/lib/reports";
 
 export async function GET(req: NextRequest) {
-  const result = await requireChurchSession(req)
-  if (!result.ok) return result.response
-  const { churchId } = result.data
+  const result = await requireChurchSession(req);
+  if (!result.ok) return result.response;
+  const { churchId } = result.data;
 
   const { searchParams } = new URL(req.url);
-  const month = searchParams.get("month");
-  const year = searchParams.get("year");
+  const year = Number(searchParams.get("year"));
+  const month = Number(searchParams.get("month")); // 1-12, absent = whole year
 
-  const where: Record<string, unknown> = { churchId };
-  if (year) {
-    const y = Number(year);
-    const m = month ? Number(month) - 1 : 0;
-    const start = month ? new Date(y, m, 1) : new Date(y, 0, 1);
-    const end = month ? new Date(y, m + 1, 1) : new Date(y + 1, 0, 1);
-    where.dataCulto = { gte: start, lt: end };
+  const where: { churchId: number; dataCulto?: { gte: Date; lt: Date } } = { churchId };
+  if (Number.isInteger(year) && year > 0) {
+    // dataCulto is stored as UTC midnight, so the range must be in UTC too.
+    const hasMonth = Number.isInteger(month) && month >= 1 && month <= 12;
+    where.dataCulto = hasMonth
+      ? { gte: new Date(Date.UTC(year, month - 1, 1)), lt: new Date(Date.UTC(year, month, 1)) }
+      : { gte: new Date(Date.UTC(year, 0, 1)), lt: new Date(Date.UTC(year + 1, 0, 1)) };
   }
 
   const reports = await prisma.report.findMany({
     where,
-    orderBy: { dataCulto: "desc" },
+    orderBy: [{ dataCulto: "desc" }, { horario: "desc" }],
     select: {
       id: true,
       dataCulto: true,
@@ -39,131 +45,28 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requireChurchSession(req)
-  if (!result.ok) return result.response
-  const { churchId } = result.data
+  const result = await requireChurchSession(req);
+  if (!result.ok) return result.response;
+  const { churchId } = result.data;
 
-  const body = await req.json();
+  const parsed = parseReportInput(await req.json().catch(() => null));
+  if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 400 });
+  const input = parsed.data;
 
-  const {
-    dataCulto,
-    diaDaSemana,
-    horario,
-    pregador,
-    pastoresPresentes,
-    visitasEspeciais,
-    testemunhoCura,
-    conversoes,
-    batizadosEspirito,
-    visitantes,
-    diaconosServico,
-    criancasApresentadas,
-    totalPresentes,
-    totalOfertasGerais,
-    totalOfertasEspeciais,
-    outrasEntradas,
-    totalOfertasMissoes,
-    diaconosResponsaveis,
-    diaconosEmServico,
-    responsavelPeloRelatorio,
-    tithers,
-  } = body;
-
-  // Calculate totals using Decimal arithmetic to avoid float rounding errors
-  const totalDizimos = (tithers as { value: number }[]).reduce(
-    (sum, t) => sum.add(new Decimal(t.value || 0)),
-    new Decimal(0)
-  );
-  const arrecadacaoTotal = totalDizimos
-    .add(new Decimal(totalOfertasGerais || 0))
-    .add(new Decimal(totalOfertasEspeciais || 0))
-    .add(new Decimal(outrasEntradas || 0));
+  const peopleError = await checkReportPeople(churchId, input);
+  if (peopleError) return Response.json({ error: peopleError }, { status: 400 });
 
   const report = await prisma.report.create({
     data: {
       churchId,
-      dataCulto: new Date(dataCulto),
-      diaDaSemana,
-      horario,
-      pregador,
-      pastoresPresentes: Array.isArray(pastoresPresentes) ? pastoresPresentes.filter(Boolean) : [],
-      visitasEspeciais: Array.isArray(visitasEspeciais) ? visitasEspeciais.filter(Boolean) : [],
-      testemunhoCura: Number(testemunhoCura || 0),
-      conversoes: Number(conversoes || 0),
-      batizadosEspirito: Number(batizadosEspirito || 0),
-      visitantes: Number(visitantes || 0),
-      diaconosServico: Number(diaconosServico || 0),
-      criancasApresentadas: Number(criancasApresentadas || 0),
-      totalPresentes: Number(totalPresentes || 0),
-      totalOfertasGerais: new Decimal(totalOfertasGerais || 0),
-      totalOfertasEspeciais: new Decimal(totalOfertasEspeciais || 0),
-      outrasEntradas: new Decimal(outrasEntradas || 0),
-      arrecadacaoTotal: new Decimal(arrecadacaoTotal),
-      totalOfertasMissoes: totalOfertasMissoes
-        ? new Decimal(totalOfertasMissoes)
-        : null,
-      totalDizimos: new Decimal(totalDizimos),
-      diaconosEmServico: Array.isArray(diaconosEmServico) ? diaconosEmServico.filter(Boolean) : [],
-      diaconosResponsaveis: Array.isArray(diaconosResponsaveis) ? diaconosResponsaveis.filter(Boolean) : [],
-      responsavelPeloRelatorio: responsavelPeloRelatorio || null,
-      tithers: {
-        create: (tithers as {
-          personName: string;
-          chequeNumber?: string;
-          bankNumber?: string;
-          paymentMethod?: "DINHEIRO" | "PIX" | null;
-          value: number;
-          order: number;
-        }[])
-          .filter((t) => t.personName?.trim())
-          .map((t) => ({
-            personName: t.personName.trim(),
-            chequeNumber: t.chequeNumber || null,
-            bankNumber: t.bankNumber || null,
-            paymentMethod: t.paymentMethod ?? null,
-            value: new Decimal(t.value || 0),
-            order: t.order,
-          })),
-      },
+      ...reportFields(input),
+      deacons: { create: deaconRows(input) },
+      tithers: { create: titherRows(input) },
     },
-    include: { tithers: { orderBy: { order: "asc" } } },
+    select: { id: true },
   });
 
-  // Auto-create Pessoa for every new name encountered in this report
-  const rawNames = [
-    body.pregador,
-    ...(body.pastoresPresentes ?? []),
-    ...(body.visitasEspeciais ?? []),
-    ...(body.diaconosResponsaveis ?? []),
-    ...(tithers as { personName: string }[])
-      .filter((t) => t.personName?.trim())
-      .map((t) => t.personName.trim()),
-  ]
-    .filter(Boolean)
-    .map((n: string) => n.trim())
-
-  // Deduplicate accent+case-insensitively, preserving original casing
-  const strip = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
-  const seenKeys = new Set<string>()
-  const allNames: string[] = []
-  for (const name of rawNames) {
-    const key = strip(name)
-    if (!seenKeys.has(key)) { seenKeys.add(key); allNames.push(name) }
-  }
-
-  if (allNames.length > 0) {
-    const existing = await prisma.$queryRaw<{ name: string }[]>(
-      Prisma.sql`SELECT name FROM "Person" WHERE "churchId" = ${churchId} AND unaccent(name) ILIKE ANY(ARRAY[${Prisma.join(allNames.map((n) => Prisma.sql`unaccent(${n})`), ",")}])`
-    );
-    const existingKeys = new Set(existing.map((p) => strip(p.name)));
-    const toCreate = allNames.filter((n) => !existingKeys.has(strip(n)));
-    if (toCreate.length > 0) {
-      await prisma.person.createMany({
-        data: toCreate.map((name) => ({ churchId, name, roles: ["membro"] })),
-        skipDuplicates: true,
-      });
-    }
-  }
+  await ensurePeopleExist(churchId, input);
 
   return Response.json(report, { status: 201 });
 }

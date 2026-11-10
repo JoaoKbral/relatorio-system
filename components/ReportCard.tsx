@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Download, Eye, Trash2 } from "lucide-react";
+import DownloadButton from "@/components/DownloadButton";
+import { Eye, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { useState } from "react";
 
 interface ReportCardProps {
@@ -31,31 +31,11 @@ export default function ReportCard({
   onToggle,
   onDelete,
 }: ReportCardProps) {
-  const [downloading, setDownloading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const dateStr = new Date(dataCulto).toLocaleDateString("pt-BR", {
     timeZone: "UTC",
   });
-
-  async function handleDownload() {
-    setDownloading(true);
-    try {
-      const res = await fetch(`/api/relatorios/${id}/download`);
-      if (!res.ok) { toast.error("Erro ao baixar o relatório."); return; }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `REFC-${dateStr.replace(/\//g, "-")}.docx`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Erro ao baixar o relatório.");
-    } finally {
-      setDownloading(false);
-    }
-  }
 
   return (
     <Card
@@ -90,15 +70,7 @@ export default function ReportCard({
             <Eye className="w-4 h-4 mr-1" />
             Ver
           </Link>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownload}
-            disabled={downloading}
-          >
-            <Download className="w-4 h-4 mr-1" />
-            {downloading ? "..." : "DOCX"}
-          </Button>
+          <DownloadButton id={id} dataCulto={dataCulto} horario={horario} variant="outline" />
           {onDelete && (
             <Button
               variant={confirmDelete ? "destructive" : "outline"}

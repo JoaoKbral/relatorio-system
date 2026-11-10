@@ -4,30 +4,33 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { downloadReportDocx } from "@/lib/download";
 
 interface Props {
   id: number;
-  dataCulto: Date;
+  dataCulto: string | Date;
+  horario: string;
+  label?: string;
+  size?: "sm" | "default";
+  variant?: "default" | "outline";
+  className?: string;
 }
 
-export default function DownloadButton({ id, dataCulto }: Props) {
+export default function DownloadButton({
+  id,
+  dataCulto,
+  horario,
+  label = "DOCX",
+  size = "sm",
+  variant = "default",
+  className,
+}: Props) {
   const [downloading, setDownloading] = useState(false);
 
   async function handleDownload() {
     setDownloading(true);
     try {
-      const res = await fetch(`/api/relatorios/${id}/download`);
-      if (!res.ok) { toast.error("Erro ao baixar o relatório."); return; }
-      const blob = await res.blob();
-      const dateStr = new Date(dataCulto)
-        .toLocaleDateString("pt-BR", { timeZone: "UTC" })
-        .replace(/\//g, "-");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `REFC-${dateStr}.docx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadReportDocx(id, dataCulto, horario);
     } catch {
       toast.error("Erro ao baixar o relatório.");
     } finally {
@@ -36,11 +39,11 @@ export default function DownloadButton({ id, dataCulto }: Props) {
   }
 
   return (
-    <Button size="sm" onClick={handleDownload} disabled={downloading}>
+    <Button size={size} variant={variant} className={className} onClick={handleDownload} disabled={downloading}>
       {downloading
         ? <Loader2 className="w-4 h-4 mr-1 animate-spin" />
         : <Download className="w-4 h-4 mr-1" />}
-      DOCX
+      {label}
     </Button>
   );
 }
