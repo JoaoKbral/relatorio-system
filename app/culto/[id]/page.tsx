@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { Decimal } from "@prisma/client/runtime/client";

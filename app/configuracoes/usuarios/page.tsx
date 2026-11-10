@@ -22,11 +22,6 @@ interface User {
   active: boolean;
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  MEMBER: "Membro",
-  ADMIN: "Administrador",
-};
-
 export default function UsuariosPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
