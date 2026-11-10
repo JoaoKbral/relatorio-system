@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { saveBlob } from "@/lib/download";
+import { MONTHS, MONTH_ITEMS } from "@/lib/months";
+
+const MONTH_FILTER_ITEMS = { todos: "Todos", ...MONTH_ITEMS };
 
 interface Report {
   id: number;
@@ -49,11 +52,6 @@ function saveFilter(filter: Filter) {
     // Not critical: the choice just won't be remembered.
   }
 }
-
-const MONTHS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
 
 export default function RelatoriosPage() {
   const currentYear = new Date().getFullYear();
@@ -166,7 +164,7 @@ export default function RelatoriosPage() {
         </div>
         <div className="flex-1 flex flex-col gap-1">
           <Label>Mês</Label>
-          <Select value={filter?.month ?? ""} onValueChange={(v) => v && changeFilter({ month: v })}>
+          <Select items={MONTH_FILTER_ITEMS} value={filter?.month ?? ""} onValueChange={(v) => v && changeFilter({ month: v })}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
