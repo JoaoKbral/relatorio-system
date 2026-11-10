@@ -12,13 +12,9 @@ import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { use } from "react";
 import { cn } from "@/lib/utils";
+import { PERSON_ROLES } from "@/lib/roles";
+import SignatureUpload from "@/components/SignatureUpload";
 
-const ROLES = [
-  { id: "pastor", label: "Pastor" },
-  { id: "diacono", label: "Diácono" },
-  { id: "membro", label: "Membro" },
-  { id: "lider", label: "Líder" },
-];
 
 export default function EditarPessoaPage({
   params,
@@ -29,6 +25,7 @@ export default function EditarPessoaPage({
   const router = useRouter();
   const [name, setName] = useState("");
   const [roles, setRoles] = useState<string[]>([]);
+  const [signatureUpdatedAt, setSignatureUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -38,6 +35,7 @@ export default function EditarPessoaPage({
       .then((data) => {
         setName(data.name);
         setRoles(data.roles);
+        setSignatureUpdatedAt(data.signatureUpdatedAt);
         setLoading(false);
       });
   }, [id]);
@@ -104,7 +102,7 @@ export default function EditarPessoaPage({
           <div className="flex flex-col gap-2">
             <Label>Categorias</Label>
             <div className="grid grid-cols-2 gap-3">
-              {ROLES.map((r) => (
+              {PERSON_ROLES.map((r) => (
                 <label
                   key={r.id}
                   className="flex items-center gap-2 cursor-pointer select-none"
@@ -123,6 +121,12 @@ export default function EditarPessoaPage({
             <Save className="w-4 h-4 mr-2" />
             {saving ? "Salvando..." : "Salvar Alterações"}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <SignatureUpload personId={Number(id)} updatedAt={signatureUpdatedAt} />
         </CardContent>
       </Card>
     </div>

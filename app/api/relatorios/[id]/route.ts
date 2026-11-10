@@ -1,120 +1,86 @@
 import { prisma } from "@/lib/prisma";
 import { requireChurchSession, requireChurchAdmin } from "@/lib/auth";
-import { Decimal } from "@prisma/client/runtime/client";
 import { NextRequest } from "next/server";
+import {
+  checkReportPeople,
+  deaconRows,
+  ensurePeopleExist,
+  parseReportInput,
+  reportFields,
+  reportWithPeople,
+  titherRows,
+} from "@/lib/reports";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const result = await requireChurchSession(req)
-  if (!result.ok) return result.response
-  const { churchId } = result.data
+type Params = { params: Promise<{ id: string }> };
 
-  const { id } = await params;
-  const report = await prisma.report.findUnique({
-    where: { id: Number(id), churchId },
-    include: { tithers: { orderBy: { order: "asc" } } },
+const notFound = () => Response.json({ error: "Não encontrado" }, { status: 404 });
+
+async function reportId(params: Params["params"]): Promise<number | null> {
+  const id = Number((await params).id);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+export async function GET(req: NextRequest, { params }: Params) {
+  const result = await requireChurchSession(req);
+  if (!result.ok) return result.response;
+  const { churchId } = result.data;
+
+  const id = await reportId(params);
+  if (!id) return notFound();
+
+  const report = await prisma.report.findFirst({
+    where: { id, churchId },
+    include: reportWithPeople,
   });
-  if (!report) return Response.json({ error: "Não encontrado" }, { status: 404 });
+  if (!report) return notFound();
   return Response.json(report);
 }
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const result = await requireChurchSession(req)
-  if (!result.ok) return result.response
-  const { churchId } = result.data
+export async function PUT(req: NextRequest, { params }: Params) {
+  const result = await requireChurchSession(req);
+  if (!result.ok) return result.response;
+  const { churchId } = result.data;
 
-  const { id } = await params;
-  const body = await req.json();
+  const id = await reportId(params);
+  if (!id) return notFound();
 
-  // Verify the report belongs to this church before mutating
-  const existing = await prisma.report.findUnique({ where: { id: Number(id) } });
-  if (!existing || existing.churchId !== churchId) {
-    return Response.json({ error: "Não encontrado" }, { status: 404 });
-  }
+  const existing = await prisma.report.findFirst({
+    where: { id, churchId },
+    select: { treasurerId: true },
+  });
+  if (!existing) return notFound();
 
-  const {
-    dataCulto, diaDaSemana, horario, pregador,
-    pastoresPresentes, visitasEspeciais,
-    testemunhoCura, conversoes, batizadosEspirito, visitantes,
-    diaconosServico, criancasApresentadas, totalPresentes,
-    totalOfertasGerais, totalOfertasEspeciais, outrasEntradas,
-    totalOfertasMissoes, diaconosResponsaveis, diaconosEmServico, responsavelPeloRelatorio, tithers,
-  } = body;
+  const parsed = parseReportInput(await req.json().catch(() => null));
+  if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 400 });
+  const input = parsed.data;
 
-  const totalDizimos = (tithers as { value: number }[]).reduce(
-    (sum, t) => sum.add(new Decimal(t.value || 0)),
-    new Decimal(0)
-  );
-  const arrecadacaoTotal = totalDizimos
-    .add(new Decimal(totalOfertasGerais || 0))
-    .add(new Decimal(totalOfertasEspeciais || 0))
-    .add(new Decimal(outrasEntradas || 0));
+  const peopleError = await checkReportPeople(churchId, input, existing.treasurerId);
+  if (peopleError) return Response.json({ error: peopleError }, { status: 400 });
 
-  const [, report] = await prisma.$transaction([
-    prisma.titheRecord.deleteMany({ where: { reportId: Number(id) } }),
-    prisma.report.update({
-      where: { id: Number(id) },
-      data: {
-        dataCulto: new Date(dataCulto),
-        diaDaSemana, horario, pregador,
-        pastoresPresentes: Array.isArray(pastoresPresentes) ? pastoresPresentes.filter(Boolean) : [],
-        visitasEspeciais: Array.isArray(visitasEspeciais) ? visitasEspeciais.filter(Boolean) : [],
-        testemunhoCura: Number(testemunhoCura || 0),
-        conversoes: Number(conversoes || 0),
-        batizadosEspirito: Number(batizadosEspirito || 0),
-        visitantes: Number(visitantes || 0),
-        diaconosServico: Number(diaconosServico || 0),
-        criancasApresentadas: Number(criancasApresentadas || 0),
-        totalPresentes: Number(totalPresentes || 0),
-        totalOfertasGerais: new Decimal(totalOfertasGerais || 0),
-        totalOfertasEspeciais: new Decimal(totalOfertasEspeciais || 0),
-        outrasEntradas: new Decimal(outrasEntradas || 0),
-        arrecadacaoTotal: new Decimal(arrecadacaoTotal),
-        totalOfertasMissoes: totalOfertasMissoes ? new Decimal(totalOfertasMissoes) : null,
-        totalDizimos: new Decimal(totalDizimos),
-        diaconosEmServico: Array.isArray(diaconosEmServico) ? diaconosEmServico.filter(Boolean) : [],
-        diaconosResponsaveis: Array.isArray(diaconosResponsaveis) ? diaconosResponsaveis.filter(Boolean) : [],
-        responsavelPeloRelatorio: responsavelPeloRelatorio || null,
-        tithers: {
-          create: (tithers as { personName: string; chequeNumber?: string; bankNumber?: string; paymentMethod?: "DINHEIRO" | "PIX" | null; value: number; order: number }[])
-            .filter((t) => t.personName?.trim())
-            .map((t) => ({
-              personName: t.personName.trim(),
-              chequeNumber: t.chequeNumber || null,
-              bankNumber: t.bankNumber || null,
-              paymentMethod: t.paymentMethod ?? null,
-              value: new Decimal(t.value || 0),
-              order: t.order,
-            })),
-        },
-      },
-      include: { tithers: { orderBy: { order: "asc" } } },
-    }),
-  ]);
+  // Deacons and tithers are replaced wholesale, in one transaction.
+  await prisma.report.update({
+    where: { id },
+    data: {
+      ...reportFields(input),
+      deacons: { deleteMany: {}, create: deaconRows(input) },
+      tithers: { deleteMany: {}, create: titherRows(input) },
+    },
+  });
 
-  return Response.json(report);
+  await ensurePeopleExist(churchId, input);
+
+  return Response.json({ id });
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const result = await requireChurchAdmin(req)
-  if (!result.ok) return result.response
-  const { churchId } = result.data
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const result = await requireChurchAdmin(req);
+  if (!result.ok) return result.response;
+  const { churchId } = result.data;
 
-  const { id } = await params;
+  const id = await reportId(params);
+  if (!id) return notFound();
 
-  const existing = await prisma.report.findUnique({ where: { id: Number(id) } });
-  if (!existing || existing.churchId !== churchId) {
-    return Response.json({ error: "Não encontrado" }, { status: 404 });
-  }
-
-  await prisma.report.delete({ where: { id: Number(id) } });
+  const { count } = await prisma.report.deleteMany({ where: { id, churchId } });
+  if (count === 0) return notFound();
   return new Response(null, { status: 204 });
 }

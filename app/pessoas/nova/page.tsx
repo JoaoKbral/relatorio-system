@@ -11,13 +11,8 @@ import { toast } from "sonner";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { cn, toTitleCase } from "@/lib/utils";
+import { PERSON_ROLES } from "@/lib/roles";
 
-const ROLES = [
-  { id: "pastor", label: "Pastor" },
-  { id: "diacono", label: "Diácono" },
-  { id: "membro", label: "Membro" },
-  { id: "lider", label: "Líder" },
-];
 
 export default function NovaPessoaPage() {
   const router = useRouter();
@@ -104,7 +99,7 @@ export default function NovaPessoaPage() {
           <div className="flex flex-col gap-2">
             <Label>Categorias (marque todas que se aplicam)</Label>
             <div className="grid grid-cols-2 gap-3">
-              {ROLES.map((r) => (
+              {PERSON_ROLES.map((r) => (
                 <label
                   key={r.id}
                   className="flex items-center gap-2 cursor-pointer select-none"

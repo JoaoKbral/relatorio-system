@@ -1,54 +1,47 @@
 import { prisma } from "@/lib/prisma";
-import { generateOdt } from "@/lib/odt-generator";
+import { churchDocxData, generateReportDocx, reportForDocx } from "@/lib/report-docx";
+import { reportFileName, uniqueFileNames } from "@/lib/report-filename";
 import { requireChurchSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
 import PizZip from "pizzip";
+import { z } from "zod";
+
+const MAX_REPORTS = 100;
+
+const bodySchema = z.object({
+  ids: z
+    .array(z.int().positive())
+    .min(1, "Nenhum relatório selecionado")
+    .max(MAX_REPORTS, `Máximo de ${MAX_REPORTS} relatórios por download`),
+});
 
 export async function POST(req: NextRequest) {
-  const result = await requireChurchSession(req)
-  if (!result.ok) return result.response
-  const { churchId } = result.data
+  const result = await requireChurchSession(req);
+  if (!result.ok) return result.response;
+  const { churchId } = result.data;
 
-  const { ids } = await req.json() as { ids: number[] };
-
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return Response.json({ error: "Nenhum relatório selecionado" }, { status: 400 });
-  }
-
-  if (ids.length > 100) {
-    return Response.json({ error: "Máximo de 100 relatórios por download" }, { status: 400 });
+  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos" }, { status: 400 });
   }
 
   const [reports, church] = await Promise.all([
     prisma.report.findMany({
-      where: { id: { in: ids }, churchId },
-      include: { tithers: { orderBy: { order: "asc" } } },
-      orderBy: { dataCulto: "asc" },
+      where: { id: { in: parsed.data.ids }, churchId },
+      include: reportForDocx,
+      orderBy: [{ dataCulto: "asc" }, { horario: "asc" }],
     }),
     prisma.church.findUnique({ where: { id: churchId } }),
   ]);
+  if (!church) return Response.json({ error: "Igreja não encontrada" }, { status: 404 });
 
-  if (!church) {
-    return Response.json({ error: "Igreja não encontrada" }, { status: 404 });
-  }
-
-  const churchData = {
-    igrejaComCidadeEBairro: church.city,
-    CNPJ: church.cnpj ?? '',
-    nomePastorTitular: church.pastorName ?? '',
-    prontuarioTitular: church.pastorProntuario ?? '',
-  };
+  const churchData = churchDocxData(church);
+  // Two services on the same day get different times in their names; the
+  // suffix only guards against two reports with the same date and time.
+  const names = uniqueFileNames(reports.map((r) => reportFileName(r.dataCulto, r.horario)));
 
   const archive = new PizZip();
-
-  for (const report of reports) {
-    const odt = generateOdt(report, churchData);
-    const dateStr = new Date(report.dataCulto)
-      .toLocaleDateString("pt-BR", { timeZone: "UTC" })
-      .replace(/\//g, "-");
-    archive.file(`REFC-${dateStr}.docx`, odt);
-  }
-
+  reports.forEach((report, i) => archive.file(names[i], generateReportDocx(report, churchData)));
   const zipBuf = archive.generate({ type: "nodebuffer", compression: "DEFLATE" });
 
   return new Response(new Uint8Array(zipBuf), {

@@ -75,41 +75,79 @@ model Person {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  signature         PersonSignature?
+  treasurerReports  Report[]         @relation("ReportTreasurer")
+  deaconAssignments ReportDeacon[]
+
   @@index([churchId])
   @@index([churchId, name])
 }
 
+/// Processed signature image (transparent PNG), printed on the REFC report.
+/// Kept in its own table so person queries never load the image bytes.
+model PersonSignature {
+  personId  Int      @id
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  data      Bytes
+  width     Int
+  height    Int
+  updatedAt DateTime @updatedAt
+}
+
 model Report {
-  id                       Int           @id @default(autoincrement())
+  id                       Int            @id @default(autoincrement())
   churchId                 Int
-  church                   Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church                   Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
   dataCulto                DateTime
   diaDaSemana              String
   horario                  String
   pregador                 String
   pastoresPresentes        String[]
   visitasEspeciais         String[]
-  testemunhoCura           Int           @default(0)
-  conversoes               Int           @default(0)
-  batizadosEspirito        Int           @default(0)
-  visitantes               Int           @default(0)
-  diaconosServico          Int           @default(0)
-  criancasApresentadas     Int           @default(0)
-  totalPresentes           Int           @default(0)
-  totalOfertasGerais       Decimal       @db.Decimal(10, 2)
-  totalOfertasEspeciais    Decimal       @db.Decimal(10, 2)
-  outrasEntradas           Decimal       @db.Decimal(10, 2)
-  arrecadacaoTotal         Decimal       @db.Decimal(10, 2)
-  totalOfertasMissoes      Decimal?      @db.Decimal(10, 2)
-  totalDizimos             Decimal       @db.Decimal(10, 2)
+  testemunhoCura           Int            @default(0)
+  conversoes               Int            @default(0)
+  batizadosEspirito        Int            @default(0)
+  visitantes               Int            @default(0)
+  diaconosServico          Int            @default(0)
+  criancasApresentadas     Int            @default(0)
+  totalPresentes           Int            @default(0)
+  totalOfertasGerais       Decimal        @db.Decimal(10, 2)
+  totalOfertasEspeciais    Decimal        @db.Decimal(10, 2)
+  outrasEntradas           Decimal        @db.Decimal(10, 2)
+  arrecadacaoTotal         Decimal        @db.Decimal(10, 2)
+  totalOfertasMissoes      Decimal?       @db.Decimal(10, 2)
+  totalDizimos             Decimal        @db.Decimal(10, 2)
+  /// Treasurer responsible for the report. Required by the API; nullable only
+  /// for old reports whose name could not be matched to a person.
+  treasurerId              Int?
+  treasurer                Person?        @relation("ReportTreasurer", fields: [treasurerId], references: [id], onDelete: Restrict)
+  deacons                  ReportDeacon[]
+  /// Deprecated: replaced by `deacons`. No longer written; dropped in a later migration.
   diaconosEmServico        String[]
+  /// Deprecated: replaced by `deacons` (responsible = true). No longer written.
   diaconosResponsaveis     String[]
+  /// Deprecated: replaced by `treasurer`. No longer written.
   responsavelPeloRelatorio String?
   tithers                  TitheRecord[]
-  createdAt                DateTime      @default(now())
+  createdAt                DateTime       @default(now())
 
   @@index([churchId])
   @@index([churchId, dataCulto])
+  @@index([treasurerId])
+}
+
+/// A deacon serving in a report's service. `responsible` marks the (max 2)
+/// deacons responsible for the offerings, whose signatures are printed.
+model ReportDeacon {
+  reportId    Int
+  report      Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  personId    Int
+  person      Person  @relation(fields: [personId], references: [id], onDelete: Restrict)
+  responsible Boolean @default(false)
+  order       Int     @default(0)
+
+  @@id([reportId, personId])
+  @@index([personId])
 }
 
 model TitheRecord {

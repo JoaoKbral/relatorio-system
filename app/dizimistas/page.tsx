@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FileDown, FileSpreadsheet, Search } from "lucide-react";
 import { toast } from "sonner";
+import { MONTHS, MONTH_ITEMS } from "@/lib/months";
 
 type Tipo = "detalhado" | "detalhado_por_dia" | "comparativo";
 type SubMode = "por_data" | "por_pessoa";
@@ -41,10 +42,6 @@ interface ComparativoData {
   rows: ComparativoRow[];
 }
 
-const MONTHS = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
 
 const MONTHS_SHORT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -455,7 +452,7 @@ export default function DizimistasPage() {
         <div className="flex gap-3">
           <div className="flex-1 flex flex-col gap-1">
             <Label>Mês</Label>
-            <Select value={month} onValueChange={(v) => v && setMonth(v)}>
+            <Select items={MONTH_ITEMS} value={month} onValueChange={(v) => v && setMonth(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {MONTHS.map((m, i) => (
@@ -491,7 +488,7 @@ export default function DizimistasPage() {
           </div>
           <div className="flex-1 min-w-[100px] flex flex-col gap-1">
             <Label>De</Label>
-            <Select value={monthStart} onValueChange={handleMonthStartChange}>
+            <Select items={MONTH_ITEMS} value={monthStart} onValueChange={handleMonthStartChange}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {MONTHS.map((m, i) => (
@@ -502,7 +499,7 @@ export default function DizimistasPage() {
           </div>
           <div className="flex-1 min-w-[100px] flex flex-col gap-1">
             <Label>Até</Label>
-            <Select value={monthEnd} onValueChange={(v) => v && setMonthEnd(v)}>
+            <Select items={MONTH_ITEMS} value={monthEnd} onValueChange={(v) => v && setMonthEnd(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {MONTHS.map((m, i) => (

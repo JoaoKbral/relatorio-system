@@ -1,49 +1,32 @@
 import { prisma } from "@/lib/prisma";
-import { generateOdt } from "@/lib/odt-generator";
+import { churchDocxData, generateReportDocx, reportForDocx } from "@/lib/report-docx";
+import { reportFileName } from "@/lib/report-filename";
 import { requireChurchSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const result = await requireChurchSession(req)
-  if (!result.ok) return result.response
-  const { churchId } = result.data
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const result = await requireChurchSession(req);
+  if (!result.ok) return result.response;
+  const { churchId } = result.data;
 
-  const { id } = await params;
-  const [report, church] = await Promise.all([
-    prisma.report.findUnique({
-      where: { id: Number(id), churchId },
-      include: { tithers: { orderBy: { order: "asc" } } },
-    }),
-    prisma.church.findUnique({ where: { id: churchId } }),
-  ]);
-
-  if (!report) {
+  const id = Number((await params).id);
+  if (!Number.isInteger(id) || id <= 0) {
     return Response.json({ error: "Não encontrado" }, { status: 404 });
   }
 
-  if (!church) {
-    return Response.json({ error: "Igreja não encontrada" }, { status: 404 });
-  }
+  const [report, church] = await Promise.all([
+    prisma.report.findFirst({ where: { id, churchId }, include: reportForDocx }),
+    prisma.church.findUnique({ where: { id: churchId } }),
+  ]);
+  if (!report) return Response.json({ error: "Não encontrado" }, { status: 404 });
+  if (!church) return Response.json({ error: "Igreja não encontrada" }, { status: 404 });
 
-  const buf = generateOdt(report, {
-    igrejaComCidadeEBairro: church.city,
-    CNPJ: church.cnpj ?? '',
-    nomePastorTitular: church.pastorName ?? '',
-    prontuarioTitular: church.pastorProntuario ?? '',
-  });
-
-  const dateStr = new Date(report.dataCulto)
-    .toLocaleDateString("pt-BR", { timeZone: "UTC" })
-    .replace(/\//g, "-");
-  const filename = `REFC-${dateStr}.docx`;
+  const buf = generateReportDocx(report, churchDocxData(church));
 
   return new Response(new Uint8Array(buf), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": `attachment; filename="${reportFileName(report.dataCulto, report.horario)}"`,
     },
   });
 }

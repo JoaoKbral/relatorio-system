@@ -8,29 +8,50 @@
 
 ## 2. Configurar o banco de dados localmente
 
-No arquivo `.env`, cole a connection string do Neon:
+Copie `.env.example` para `.env` e preencha:
 
 ```
 DATABASE_URL="postgresql://usuario:senha@ep-xxxxx.us-east-2.aws.neon.tech/neondb?sslmode=require"
+SESSION_SECRET="(gere com: openssl rand -base64 32)"
 ```
 
-Depois, execute no terminal (dentro da pasta `web`):
+As variáveis `SEED_*` e `CHURCH_*` só são usadas pelo comando de seed.
+
+Depois, execute no terminal (na raiz do projeto):
 
 ```bash
-npx prisma db push
-node scripts/prepare-template.mjs
+npm install
+npm run db:migrate
+npm run db:seed
 ```
 
-Isso cria as tabelas no banco e prepara o template ODT.
+Isso cria as tabelas no banco e o usuário super-admin e a igreja inicial.
+O template do relatório (`public/template/REFC-template.docx`) já vem pronto.
+
+### Atualizar o banco depois de mudanças no sistema
+
+Quando uma nova versão traz migrações (pasta `prisma/migrations`), rode antes de publicar:
+
+```bash
+npm run db:migrate
+```
+
+Se o banco foi criado antes das migrações existirem (com `prisma db push`), rode uma única vez antes:
+
+```bash
+npx prisma migrate resolve --applied 0_init
+```
+
+Teste primeiro numa *branch* do banco no Neon (Branches → New branch) usando a connection string da branch.
 
 ## 3. Publicar no Vercel (gratuito)
 
 1. Acesse https://vercel.com e crie uma conta gratuita (pode entrar com o GitHub)
 2. Clique em **Add New → Project**
-3. Faça upload da pasta `web` ou conecte com um repositório GitHub
-4. Na tela de configuração, adicione a variável de ambiente:
-   - **Name:** `DATABASE_URL`
-   - **Value:** (cole a connection string do Neon)
+3. Conecte com o repositório GitHub do projeto
+4. Na tela de configuração, adicione as variáveis de ambiente:
+   - `DATABASE_URL`: a connection string do Neon
+   - `SESSION_SECRET`: um segredo aleatório (o mesmo tipo do `.env`; sem ele o login não funciona)
 5. Clique em **Deploy**
 
 Após o deploy, o sistema estará acessível por um link como `https://seu-projeto.vercel.app`
@@ -44,7 +65,6 @@ O sistema funcionará como um aplicativo instalado.
 ## Executar localmente (para testes)
 
 ```bash
-cd web
 npm install
 npm run dev
 ```
