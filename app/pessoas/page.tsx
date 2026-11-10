@@ -14,33 +14,18 @@ import {
 import { toast } from "sonner";
 import { PlusCircle, Pencil, Trash2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PERSON_ROLES, roleColor, roleLabel } from "@/lib/roles";
 
 interface Person {
   id: number;
   name: string;
   roles: string[];
   active: boolean;
+  hasSignature: boolean;
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  pastor: "Pastor",
-  diacono: "Diácono",
-  membro: "Membro",
-  lider: "Líder",
-};
-
-const ROLE_COLORS: Record<string, string> = {
-  pastor: "bg-purple-100 text-purple-700",
-  diacono: "bg-blue-100 text-blue-700",
-  membro: "bg-yellow-100 text-yellow-700",
-  lider: "bg-orange-100 text-orange-700",
-};
-
-const ROLE_BUTTONS = [
-  { id: "diacono", label: "Diácono" },
-  { id: "lider", label: "Líder" },
-  { id: "pastor", label: "Pastor" },
-];
+// "membro" is everyone's default role, so it is not offered as a filter.
+const ROLE_FILTERS = PERSON_ROLES.filter((r) => r.id !== "membro");
 
 export default function PessoasPage() {
   const [people, setPeople] = useState<Person[]>([]);
@@ -105,8 +90,8 @@ export default function PessoasPage() {
       </div>
 
       {/* Role filter buttons */}
-      <div className="flex gap-2">
-        {ROLE_BUTTONS.map((r) => (
+      <div className="flex flex-wrap gap-2">
+        {ROLE_FILTERS.map((r) => (
           <Button
             key={r.id}
             variant={activeRole === r.id ? "default" : "outline"}
@@ -148,11 +133,16 @@ export default function PessoasPage() {
                   {p.roles.map((r) => (
                     <span
                       key={r}
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[r] ?? "bg-gray-100 text-gray-600"}`}
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleColor(r)}`}
                     >
-                      {ROLE_LABELS[r] ?? r}
+                      {roleLabel(r)}
                     </span>
                   ))}
+                  {p.hasSignature && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium border border-gray-300 text-gray-600">
+                      assinatura
+                    </span>
+                  )}
                   {p.roles.length === 0 && (
                     <span className="text-xs text-gray-400">Sem categoria</span>
                   )}

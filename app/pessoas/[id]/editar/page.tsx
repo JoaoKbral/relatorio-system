@@ -12,13 +12,8 @@ import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { use } from "react";
 import { cn } from "@/lib/utils";
+import { PERSON_ROLES } from "@/lib/roles";
 
-const ROLES = [
-  { id: "pastor", label: "Pastor" },
-  { id: "diacono", label: "Diácono" },
-  { id: "membro", label: "Membro" },
-  { id: "lider", label: "Líder" },
-];
 
 export default function EditarPessoaPage({
   params,
@@ -104,7 +99,7 @@ export default function EditarPessoaPage({
           <div className="flex flex-col gap-2">
             <Label>Categorias</Label>
             <div className="grid grid-cols-2 gap-3">
-              {ROLES.map((r) => (
+              {PERSON_ROLES.map((r) => (
                 <label
                   key={r.id}
                   className="flex items-center gap-2 cursor-pointer select-none"

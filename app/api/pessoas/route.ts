@@ -7,12 +7,14 @@ import { prisma } from "@/lib/prisma";
 import { requireChurchSession } from "@/lib/auth";
 import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
+import { isPersonRole } from "@/lib/roles";
 
 type PersonRow = {
   id: number;
   name: string;
   roles: string[];
   active: boolean;
+  hasSignature: boolean;
   churchId: number;
   createdAt: Date;
   updatedAt: Date;
@@ -35,7 +37,9 @@ export async function GET(req: NextRequest) {
   if (role) conditions.push(Prisma.sql`${role} = ANY(roles)`);
 
   const people = await prisma.$queryRaw<PersonRow[]>(
-    Prisma.sql`SELECT id, name, roles, active, "churchId", "createdAt", "updatedAt" FROM "Person" WHERE ${Prisma.join(conditions, " AND ")} ORDER BY name ASC LIMIT 50`
+    Prisma.sql`SELECT id, name, roles, active, "churchId", "createdAt", "updatedAt",
+                      EXISTS (SELECT 1 FROM "PersonSignature" s WHERE s."personId" = "Person".id) AS "hasSignature"
+               FROM "Person" WHERE ${Prisma.join(conditions, " AND ")} ORDER BY name ASC LIMIT 50`
   );
 
   return Response.json(people);
@@ -46,20 +50,22 @@ export async function POST(req: NextRequest) {
   if (!result.ok) return result.response
   const { churchId } = result.data
 
-  const body = await req.json();
-  const { name, roles } = body as { name: string; roles: string[] };
+  const body = (await req.json().catch(() => null)) as { name?: unknown; roles?: unknown } | null;
+  const name = typeof body?.name === "string" ? body.name : "";
+  const roles = Array.isArray(body?.roles) ? body.roles.filter((r): r is string => typeof r === "string" && isPersonRole(r)) : [];
 
-  if (!name?.trim()) {
+  if (!name.trim()) {
     return Response.json({ error: "Nome é obrigatório" }, { status: 400 });
   }
 
   const existing = await prisma.$queryRaw<PersonRow[]>(
-    Prisma.sql`SELECT id, name, roles, active, "churchId", "createdAt", "updatedAt" FROM "Person" WHERE "churchId" = ${churchId} AND active = true AND unaccent(name) ILIKE unaccent(${name.trim()}) LIMIT 1`
+    Prisma.sql`SELECT id, name, roles, active, "churchId", "createdAt", "updatedAt", false AS "hasSignature"
+               FROM "Person" WHERE "churchId" = ${churchId} AND active = true AND unaccent(name) ILIKE unaccent(${name.trim()}) LIMIT 1`
   );
   if (existing.length > 0) return Response.json(existing[0]);
 
   const person = await prisma.person.create({
-    data: { churchId, name: name.trim(), roles: roles ?? [] },
+    data: { churchId, name: name.trim(), roles },
   });
 
   return Response.json(person, { status: 201 });
