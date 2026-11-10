@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
+import { saveBlob } from "@/lib/download";
 
 interface Report {
   id: number;
@@ -17,6 +18,38 @@ interface Report {
   horario: string;
 }
 
+// The chosen year/month is kept for the browser tab's session, so coming back to
+// this page shows the same period. Without a saved choice, show the current month.
+const FILTER_STORAGE_KEY = "relatorios.filter";
+
+interface Filter {
+  year: string;
+  month: string; // "1".."12" or "todos"
+}
+
+function currentFilter(): Filter {
+  const now = new Date();
+  return { year: String(now.getFullYear()), month: String(now.getMonth() + 1) };
+}
+
+function readSavedFilter(): Filter | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(FILTER_STORAGE_KEY) ?? "null");
+    if (typeof saved?.year === "string" && typeof saved?.month === "string") return saved;
+  } catch {
+    // Storage blocked or corrupt: fall back to the current month.
+  }
+  return null;
+}
+
+function saveFilter(filter: Filter) {
+  try {
+    sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filter));
+  } catch {
+    // Not critical: the choice just won't be remembered.
+  }
+}
+
 const MONTHS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
@@ -24,25 +57,44 @@ const MONTHS = [
 
 export default function RelatoriosPage() {
   const currentYear = new Date().getFullYear();
-  const [year, setYear] = useState(String(currentYear));
-  const [month, setMonth] = useState("todos");
+  // null until sessionStorage has been read on the client (it does not exist
+  // during server rendering), so the first fetch already uses the right period.
+  const [filter, setFilter] = useState<Filter | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [downloading, setDownloading] = useState(false);
 
   const years = Array.from({ length: 5 }, (_, i) => String(currentYear - i));
+  if (filter && !years.includes(filter.year)) years.push(filter.year);
 
   useEffect(() => {
+    setFilter(readSavedFilter() ?? currentFilter());
+  }, []);
+
+  function changeFilter(change: Partial<Filter>) {
+    if (!filter) return;
+    const next = { ...filter, ...change };
+    setFilter(next);
+    saveFilter(next);
+  }
+
+  useEffect(() => {
+    if (!filter) return;
+    let cancelled = false;
     setLoading(true);
     setSelectedIds(new Set());
-    const params = new URLSearchParams({ year });
-    if (month !== "todos") params.set("month", month);
+    const params = new URLSearchParams({ year: filter.year });
+    if (filter.month !== "todos") params.set("month", filter.month);
     fetch(`/api/relatorios?${params}`)
-      .then((r) => r.json())
-      .then((data) => setReports(data))
-      .finally(() => setLoading(false));
-  }, [year, month]);
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data: Report[]) => !cancelled && setReports(data))
+      .catch(() => !cancelled && toast.error("Erro ao carregar relatórios."))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [filter]);
 
   function toggleSelect(id: number) {
     setSelectedIds((prev) => {
@@ -83,13 +135,7 @@ export default function RelatoriosPage() {
         body: JSON.stringify({ ids }),
       });
       if (!res.ok) { toast.error("Erro ao gerar ZIP."); return; }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "REFC-relatorios.zip";
-      a.click();
-      URL.revokeObjectURL(url);
+      saveBlob(await res.blob(), "REFC-relatorios.zip");
     } catch {
       toast.error("Erro ao gerar ZIP.");
     } finally {
@@ -107,7 +153,7 @@ export default function RelatoriosPage() {
       <div className="flex gap-3">
         <div className="flex-1 flex flex-col gap-1">
           <Label>Ano</Label>
-          <Select value={year} onValueChange={(v) => v && setYear(v)}>
+          <Select value={filter?.year ?? ""} onValueChange={(v) => v && changeFilter({ year: v })}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -120,7 +166,7 @@ export default function RelatoriosPage() {
         </div>
         <div className="flex-1 flex flex-col gap-1">
           <Label>Mês</Label>
-          <Select value={month} onValueChange={(v) => v && setMonth(v)}>
+          <Select value={filter?.month ?? ""} onValueChange={(v) => v && changeFilter({ month: v })}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
