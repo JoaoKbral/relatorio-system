@@ -7,4 +7,4 @@ Multi-tenant Next.js 16 + Prisma 7 (PostgreSQL/Neon) app where churches record e
 - [Service reports](features/service-reports.md) - Shared 6-step report form (create/edit), required treasurer, deacon links, zod validation, view and history with remembered month filter
 - [DOCX export](features/docx-export.md) - Filling the REFC Word template: split-tag merge, multi-page tithers, floating signature images, file names with the service time, ZIP
 - [Tithe reports](features/tithe-reports.md) - `/dizimistas`: monthly per-person, per-day, and multi-month comparative tithe reports with PDF/XLSX export
-- [People](features/people.md) - Person registry with roles (incl. tesoureiro), signature upload and processing, accent-insensitive search, name autocomplete
+- [People](features/people.md) - Person registry with roles (incl. tesoureiro), signature upload and two-colour cleanup, accent-insensitive search, name autocomplete

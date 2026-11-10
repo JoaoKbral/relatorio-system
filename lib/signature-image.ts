@@ -6,10 +6,8 @@ const MAX_WIDTH = 600;
 const MAX_HEIGHT = 200;
 /** Large inputs are scaled down to this before processing, for speed. */
 const MAX_SOURCE_SIDE = 2000;
-/** Brightness (0-255) at or above which a pixel becomes fully transparent... */
-const WHITE_THRESHOLD = 225;
-/** ...and at or below which it stays fully opaque. Between them it fades. */
-const INK_THRESHOLD = 140;
+/** Every kept (signature) pixel is painted this one colour. */
+const INK_RGB = [0, 0, 0] as const;
 /** Transparent margin kept around the trimmed signature, in output pixels. */
 const PADDING = 4;
 
@@ -28,6 +26,28 @@ function canvas2d(width: number, height: number) {
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new SignatureImageError("Seu navegador não permite processar imagens.");
   return { canvas, ctx };
+}
+
+/** Otsu's method: the brightness that best splits the histogram into two groups. */
+function otsuThreshold(hist: number[], total: number): number {
+  let sumAll = 0;
+  for (let l = 0; l < 256; l++) sumAll += l * hist[l];
+  let sumDark = 0, countDark = 0, best = 0, bestVar = -1;
+  for (let t = 0; t < 256; t++) {
+    countDark += hist[t];
+    if (countDark === 0) continue;
+    const countLight = total - countDark;
+    if (countLight === 0) break;
+    sumDark += t * hist[t];
+    const meanDark = sumDark / countDark;
+    const meanLight = (sumAll - sumDark) / countLight;
+    const between = countDark * countLight * (meanDark - meanLight) ** 2;
+    if (between > bestVar) {
+      bestVar = between;
+      best = t;
+    }
+  }
+  return best;
 }
 
 export async function processSignatureImage(file: File): Promise<ProcessedSignature> {
@@ -49,19 +69,35 @@ export async function processSignatureImage(file: File): Promise<ProcessedSignat
   src.ctx.drawImage(bitmap, 0, 0, w, h);
   bitmap.close();
 
-  // 2. Light pixels become transparent; dark ink stays, with soft edges.
+  // 2. Reduce the image to two colours: split pixels into a light and a dark
+  //    group by brightness (Otsu's threshold), then remove whichever group is
+  //    larger (the background) and paint the other one solid ink.
   const image = src.ctx.getImageData(0, 0, w, h);
   const px = image.data;
-  let minX = w, minY = h, maxX = -1, maxY = -1;
-  for (let i = 0; i < px.length; i += 4) {
+  const total = w * h;
+  const lum = new Uint8Array(total);
+  const hist = new Array<number>(256).fill(0);
+  for (let p = 0, i = 0; p < total; p++, i += 4) {
     const a = px[i + 3] / 255;
     // Brightness as if drawn over white, so already-transparent areas count as paper.
-    const lum = (0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) * a + 255 * (1 - a);
-    const ink = Math.min(1, Math.max(0, (WHITE_THRESHOLD - lum) / (WHITE_THRESHOLD - INK_THRESHOLD)));
-    const alpha = Math.round(ink * 255);
-    px[i + 3] = alpha;
-    if (alpha > 24) {
-      const p = i / 4;
+    const l = Math.round((0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) * a + 255 * (1 - a));
+    lum[p] = l;
+    hist[l]++;
+  }
+  const threshold = otsuThreshold(hist, total);
+  let darkCount = 0;
+  for (let l = 0; l <= threshold; l++) darkCount += hist[l];
+  // The colour that appears the most is the background; the rest is the signature.
+  const inkIsDark = darkCount <= total - darkCount;
+
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  for (let p = 0, i = 0; p < total; p++, i += 4) {
+    const isInk = inkIsDark ? lum[p] <= threshold : lum[p] > threshold;
+    px[i] = INK_RGB[0];
+    px[i + 1] = INK_RGB[1];
+    px[i + 2] = INK_RGB[2];
+    px[i + 3] = isInk ? 255 : 0;
+    if (isInk) {
       const x = p % w;
       const y = (p - x) / w;
       if (x < minX) minX = x;
@@ -71,7 +107,7 @@ export async function processSignatureImage(file: File): Promise<ProcessedSignat
     }
   }
   if (maxX < 0) {
-    throw new SignatureImageError("Nenhuma assinatura encontrada. Use uma imagem com traço escuro em fundo claro.");
+    throw new SignatureImageError("Nenhuma assinatura encontrada. Use uma imagem da assinatura sobre um fundo liso.");
   }
   src.ctx.putImageData(image, 0, 0);
 
