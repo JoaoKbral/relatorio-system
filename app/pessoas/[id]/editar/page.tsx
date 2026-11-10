@@ -13,6 +13,7 @@ import Link from "next/link";
 import { use } from "react";
 import { cn } from "@/lib/utils";
 import { PERSON_ROLES } from "@/lib/roles";
+import SignatureUpload from "@/components/SignatureUpload";
 
 
 export default function EditarPessoaPage({
@@ -24,6 +25,7 @@ export default function EditarPessoaPage({
   const router = useRouter();
   const [name, setName] = useState("");
   const [roles, setRoles] = useState<string[]>([]);
+  const [signatureUpdatedAt, setSignatureUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -33,6 +35,7 @@ export default function EditarPessoaPage({
       .then((data) => {
         setName(data.name);
         setRoles(data.roles);
+        setSignatureUpdatedAt(data.signatureUpdatedAt);
         setLoading(false);
       });
   }, [id]);
@@ -118,6 +121,12 @@ export default function EditarPessoaPage({
             <Save className="w-4 h-4 mr-2" />
             {saving ? "Salvando..." : "Salvar Alterações"}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <SignatureUpload personId={Number(id)} updatedAt={signatureUpdatedAt} />
         </CardContent>
       </Card>
     </div>
