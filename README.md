@@ -18,8 +18,6 @@ Open http://localhost:3000 and log in with the `SEED_SUPER_ADMIN_*` or `SEED_ADM
 
 Schema changes go through migrations in `prisma/migrations`: create one with `npx prisma migrate dev --name <change>` against a development database, then apply it with `npm run db:migrate`. `0_init` is a baseline of the schema that existed before migrations were introduced; a database created earlier with `db push` must first run `npx prisma migrate resolve --applied 0_init`.
 
-`scripts/list-unmatched-report-people.ts` (`npx tsx scripts/list-unmatched-report-people.ts`) lists old reports whose treasurer or deacon names could not be linked to a person.
-
 ## Commands
 
 | Command | What it does |
