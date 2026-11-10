@@ -24,7 +24,7 @@ Turns a saved service report into the official REFC "Relatório Estatístico e F
 - Only the first 6 pastors, 2 special visitors, and 2 responsible deacons are printed; extras are silently dropped. Deacons in service (`diaconosEmServico`) are not printed, only their count.
 - Tag names are part of the contract between `lib/odt-generator.ts` and the template (e.g. `TestemunhoDeCura`, `QuantidadeDeDiaconosPresentes`, `presentes`). Renaming one side without the other leaves a blank field, not an error.
 - `formatCurrency` returns "" for zero/null `Decimal`, so R$ 0,00 values print blank.
-- `scripts/prepare-template.mjs` (`npm run prepare-template`) still targets the old `.odt` files, which no longer exist, so it fails. The DOCX template is maintained by hand. `DEPLOY.md` still mentions this step.
+- The DOCX template is maintained by hand in Word; there is no build step that prepares it.
 
 ## How to verify it
 Not run while writing this doc. Create a report with 12 tithers and download it: the DOCX has 2 pages, tithers 1-10 on page 1 and 11-12 on page 2, header filled on both. Select 3 reports in `/relatorios` and download: the ZIP has 3 `.docx` files.

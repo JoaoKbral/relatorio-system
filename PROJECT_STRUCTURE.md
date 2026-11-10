@@ -39,7 +39,7 @@ relatorios-system/
 │   │   └── [id]/               # View report + editar/ sub-route
 │   ├── pessoas/                # People management UI (nova/, [id]/editar/)
 │   ├── relatorios/             # Report history UI
-│   ├── dizimistas/             # Tithe reports UI — simples (list) + detalhado (values), PDF/XLSX export
+│   ├── dizimistas/             # Tithe reports UI — detalhado, detalhado por dia, comparativo; PDF/XLSX export
 │   ├── layout.tsx              # Root layout with navigation
 │   └── page.tsx                # Homepage (recent reports + CTA)
 ├── components/                 # Shared React components
@@ -62,8 +62,6 @@ relatorios-system/
 │   └── seed.ts                 # Seeds a SUPER_ADMIN user + demo church
 ├── public/
 │   └── template/               # REFC-template.docx (Word template file)
-├── scripts/
-│   └── prepare-template.mjs    # Copies DOCX template to public/ at deploy
 ├── prisma.config.ts            # Prisma 7 config: DB URL + PrismaPg adapter
 ├── proxy.ts                    # Next.js middleware (auth guard + redirect logic)
 ├── DEPLOY.md                   # Neon + Vercel setup guide
@@ -104,7 +102,6 @@ relatorios-system/
 - **DB migrate**: `npm run db:migrate`
 - **DB push**: `npm run db:push`
 - **DB seed**: `npm run db:seed`
-- **Prepare template**: `npm run prepare-template`
 
 ## Conventions
 - Server components by default; `"use client"` only when hooks/interactivity needed

@@ -4,8 +4,7 @@ import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { Decimal } from "@prisma/client/runtime/client";
 
-// NOTE: Template must be REFC-template.docx (DOCX format).
-// To convert: open REFC-template.odt in LibreOffice → File → Save As → .docx
+// NOTE: Template must be REFC-template.docx (DOCX format), edited by hand in Word.
 
 interface ChurchData {
   igrejaComCidadeEBairro: string;

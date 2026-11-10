@@ -28,7 +28,6 @@ After each worship service, a user fills in a step-by-step form: date and time, 
 - New and edit forms are duplicated (~800 lines each). A change to form behavior must be made in both files.
 - Person auto-creation only happens on POST, not on PUT, and always uses role `membro`.
 - Request bodies are not validated beyond `Number(...)`/`Array.isArray` coercion; a missing `tithers` array makes POST/PUT throw (500).
-- After saving, the new-report page downloads with filename `REFC-<date>.odt` although the content is DOCX. `DownloadButton` and `ReportCard` correctly name it `.docx`.
 
 ## How to verify it
 Not run while writing this doc. Create a report with two tithers (R$ 10,00 and R$ 5,50) and R$ 20,00 general offerings: the view page shows total dízimos R$ 15,50 and arrecadação total R$ 35,50. Edit it, remove a tither, save: totals update. The new names appear in `/pessoas`.

@@ -21,7 +21,6 @@ The "Dízimos" tab (`/dizimistas`) shows who tithed and how much, built from the
 - Grouping is by the name typed on the report, not by `Person.id`. "José" and "Jose" are different people here, even though people search treats them as the same. Renaming a Person does not change past tithe records.
 - Sums use JS `Number`, not `Decimal`; fine for display at these magnitudes but not exact arithmetic.
 - Month ranges use server local time, and the comparativo bucket uses `getMonth()` (local). Correct on a UTC server (Vercel); off by one at month edges on a UTC-3 machine. See [Service reports](service-reports.md).
-- `PROJECT_STRUCTURE.md` mentions a "simples" type; the current types are the three above.
 
 ## How to verify it
 Not run while writing this doc. With two reports in the same month where "Maria" tithes R$ 50 and R$ 30: Detalhado shows Maria R$ 80,00 with 2 tithes; Detalhado por dia shows both dates; Comparativo for that month shows R$ 80,00. Export PDF and XLSX and open them.
