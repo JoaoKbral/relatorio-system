@@ -52,13 +52,17 @@ relatorios-system/
 │   └── ReportCard.tsx          # Report summary card
 ├── lib/
 │   ├── auth.ts                 # requireSession / requireAdmin / requireSuperAdmin helpers
-│   ├── odt-generator.ts        # Docxtemplater DOCX export; accepts churchData param
+│   ├── report-docx.ts          # REFC DOCX generation incl. signature images
+│   ├── reports.ts              # Server-side report validation/building (POST/PUT)
+│   ├── report-schema.ts        # zod schema for report input
+│   ├── roles.ts                # Person roles (pastor, diacono, tesoureiro, membro, lider)
 │   ├── password.ts             # bcryptjs hash + verify (12 rounds)
 │   ├── prisma.ts               # Prisma Client singleton (dev-safe, PrismaPg adapter)
 │   ├── session.ts              # JWT encrypt/decrypt; SessionPayload type
 │   └── utils.ts                # clsx helper
 ├── prisma/
-│   ├── schema.prisma           # 5 models: Church, User, Person, Report, TitheRecord
+│   ├── schema.prisma           # Church, User, Person, PersonSignature, Report, ReportDeacon, TitheRecord
+│   ├── migrations/             # Migrations; 0_init is the baseline of the pre-migration schema
 │   └── seed.ts                 # Seeds a SUPER_ADMIN user + demo church
 ├── public/
 │   └── template/               # REFC-template.docx (Word template file)
@@ -71,11 +75,11 @@ relatorios-system/
 ## Key Files
 | File | Purpose |
 |------|---------|
-| `prisma/schema.prisma` | 5 models: Church, User (roles), Person, Report, TitheRecord — all scoped by `churchId`; declares `unaccent` PostgreSQL extension (`postgresqlExtensions` preview feature enabled) |
+| `prisma/schema.prisma` | Church, User (roles), Person, PersonSignature, Report, ReportDeacon, TitheRecord — scoped by `churchId`; declares `unaccent` PostgreSQL extension (`postgresqlExtensions` preview feature enabled) |
 | `prisma.config.ts` | Prisma 7 datasource config (URL lives here, NOT in schema.prisma) |
 | `lib/auth.ts` | Auth helpers returning `AuthResult<T>` discriminated union; all API routes use these |
 | `lib/session.ts` | JWT helpers; `SessionPayload` = `{ userId, email, churchId, role }` |
-| `lib/odt-generator.ts` | Generates DOCX from template; church data passed as `ChurchData` param (from DB) |
+| `lib/report-docx.ts` | Generates the REFC DOCX from the template, with signature images; see `docs/features/docx-export.md` |
 | `lib/prisma.ts` | Prisma Client singleton with PrismaPg adapter |
 | `proxy.ts` | Middleware: redirects unauthenticated users to `/login`; redirects logged-in users away from auth pages; guards `/admin` routes for SUPER_ADMIN only |
 | `app/culto/novo/page.tsx` | 5-step form: date/time → stats → leadership → tithes → offerings |
@@ -99,8 +103,8 @@ relatorios-system/
 - **Build**: `npm run build` (runs `prisma generate && next build`)
 - **Start**: `npm start`
 - **Lint**: `npm run lint`
-- **DB migrate**: `npm run db:migrate`
-- **DB push**: `npm run db:push`
+- **DB migrate**: `npm run db:migrate` (`prisma migrate deploy`; run before deploying a version with new migrations)
+- **DB push**: `npm run db:push` (local prototyping only; real schema changes need a migration)
 - **DB seed**: `npm run db:seed`
 
 ## Conventions

@@ -4,7 +4,7 @@ Multi-tenant Next.js 16 + Prisma 7 (PostgreSQL/Neon) app where churches record e
 
 - [Auth and tenancy](features/auth-and-tenancy.md) - Login, self-registration, JWT cookie sessions, roles, `proxy.ts` guard, per-church `churchId` scoping
 - [Church administration](features/church-administration.md) - Super-admin church/user panel (`/admin`), church settings and user management for church admins (`/configuracoes`)
-- [Service reports](features/service-reports.md) - The 6-step "Novo Culto" form, report edit/view/history, totals calculation, auto-creating people from names
-- [DOCX export](features/docx-export.md) - Filling the REFC Word template per report, multi-page tither overflow, single and ZIP download
+- [Service reports](features/service-reports.md) - Shared 6-step report form (create/edit), required treasurer, deacon links, zod validation, view and history with remembered month filter
+- [DOCX export](features/docx-export.md) - Filling the REFC Word template: split-tag merge, multi-page tithers, floating signature images, file names with the service time, ZIP
 - [Tithe reports](features/tithe-reports.md) - `/dizimistas`: monthly per-person, per-day, and multi-month comparative tithe reports with PDF/XLSX export
-- [People](features/people.md) - Person registry with roles (pastor, diácono, membro, líder), accent-insensitive search, name autocomplete
+- [People](features/people.md) - Person registry with roles (incl. tesoureiro), signature upload and processing, accent-insensitive search, name autocomplete

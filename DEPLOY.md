@@ -21,12 +21,28 @@ Depois, execute no terminal (na raiz do projeto):
 
 ```bash
 npm install
-npx prisma db push
+npm run db:migrate
 npm run db:seed
 ```
 
 Isso cria as tabelas no banco e o usuário super-admin e a igreja inicial.
 O template do relatório (`public/template/REFC-template.docx`) já vem pronto.
+
+### Atualizar o banco depois de mudanças no sistema
+
+Quando uma nova versão traz migrações (pasta `prisma/migrations`), rode antes de publicar:
+
+```bash
+npm run db:migrate
+```
+
+Se o banco foi criado antes das migrações existirem (com `prisma db push`), rode uma única vez antes:
+
+```bash
+npx prisma migrate resolve --applied 0_init
+```
+
+Teste primeiro numa *branch* do banco no Neon (Branches → New branch) usando a connection string da branch.
 
 ## 3. Publicar no Vercel (gratuito)
 

@@ -26,7 +26,7 @@ Users log in with email and password and stay signed in for 7 days. Each church 
 - Passwords are limited to 8-72 chars because bcrypt silently truncates after 72 bytes. The check is duplicated in register, change-password, `/api/usuarios`, and `/api/admin/igrejas*`.
 - `/registrar` creates churches as `ACTIVE` immediately; `PENDING` exists in the enum for a future approval step.
 - Requires `SESSION_SECRET`; `getEncodedKey()` throws without it.
-- `app/culto/[id]/page.tsx` queries with `churchId: session.churchId ?? undefined`, so a SUPER_ADMIN viewing that URL sees any church's report. Church users are scoped correctly.
+- Reports are church data: `app/culto/[id]/page.tsx` returns 404 for a session without a church (SUPER_ADMIN) instead of dropping the `churchId` filter.
 
 ## How to verify it
 Not run while writing this doc. With `.env` set and `npm run dev`:

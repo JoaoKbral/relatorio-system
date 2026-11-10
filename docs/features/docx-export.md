@@ -1,30 +1,32 @@
 # DOCX export
 
 ## What it does
-Turns a saved service report into the official REFC "Relatório Estatístico e Financeiro do Culto" Word document, filled with the church's details and the report data. Reports can be downloaded one at a time or several at once as a ZIP.
+Turns a saved service report into the official REFC "Relatório Estatístico e Financeiro do Culto" Word document, filled with the church's details, the report data and the signatures of the responsible deacons and the treasurer. Reports download one at a time or several at once as a ZIP.
 
 ## Key files
-- `lib/odt-generator.ts` - `generateOdt(report, churchData)`: builds the DOCX buffer (name is historical; output is DOCX)
-- `public/template/REFC-template.docx` - the template actually used, with `{{tag}}` placeholders
+- `lib/report-docx.ts` - `generateReportDocx(report, churchData)`, the `reportForDocx` Prisma include, `churchDocxData`
+- `lib/report-filename.ts` - `reportFileName` (`REFC-08-11-2026-19h30.docx`) and `uniqueFileNames`, used by server and client
+- `lib/download.ts` - browser download helpers used by `DownloadButton`, `ReportCard`, the new-report page and `/relatorios`
+- `public/template/REFC-template.docx` - the template actually used, edited by hand in Word
 - `public/template/REFC-RelatorioEstatisticoeFinanceirodoCulto.docx` - the original form, kept as source
-- `app/api/relatorios/[id]/download/route.ts` - single download, filename `REFC-DD-MM-YYYY.docx`
-- `app/api/relatorios/download-zip/route.ts` - POST `{ ids }` (max 100) returns `REFC-relatorios.zip`
-- `components/DownloadButton.tsx`, `components/ReportCard.tsx`, `app/relatorios/page.tsx` - client triggers
-- `next.config.ts` - `serverExternalPackages: ["docxtemplater", "pizzip"]`
+- `app/api/relatorios/[id]/download/route.ts` - single download
+- `app/api/relatorios/download-zip/route.ts` - POST `{ ids }` (1-100) returns `REFC-relatorios.zip`
 
 ## How it works
-1. Read the template from `process.cwd()/public/template/REFC-template.docx` and take the `<w:body>` of `word/document.xml`.
-2. The template page holds 10 tither slots (`{{nomeDizimista1..10}}`, `{{valorDizimo1..10}}`). Pages needed = ceil(tithers / 10), minimum 1.
-3. The body is copied once per page with a page break between copies; the trailing `<w:sectPr>` is kept once at the end. On each copy, tither tags are renumbered (page 2 uses 11..20, etc.), and repeated un-numbered tags (`pastorPresente` x6, `visitaEspecial` x2, `diaconoResponsavel` x2) get unique numbers.
-4. Docxtemplater renders with `{{ }}` delimiters and `nullGetter` returning "". Header, stats, pastors, visitors, and deacons repeat on every page; only tither slots differ.
-5. All font sizes are forced to 9pt (`w:sz`/`w:szCs` = 18) after rendering.
+1. `mergeSplitTags` moves each `{{tag}}`'s text into the run where it starts. Word splits typed tags across runs (for example around spell-check marks), and the string processing below needs whole tags.
+2. The template body has 10 tither slots (`{{nomeDizimista1..10}}`, `{{valorDizimo1..10}}`). Pages = ceil(tithers / 10), minimum 1. The body is repeated per page with a page break; the trailing `<w:sectPr>` is kept once.
+3. Per page, tither tags are shifted (page 2 uses 11..20). The repeated un-numbered tags `{{pastorPresente}}` and `{{visitaEspecial}}` are numbered; their slots per page are counted from the template (currently 4 and 3).
+4. Docxtemplater renders with `{{ }}` delimiters and a `nullGetter` that returns "". Font sizes are then forced to 9pt.
+5. Signature tags (`assinaturaDiaconoResponsavel1/2`, `assinaturaResponsavelPeloRelatorio`) render as `[[SIG:tag]]` markers. `insertSignatures` adds each PNG to `word/media` with a relationship and replaces the marker with a floating `<wp:anchor>` (in front of text, `wrapNone`, centred in the cell, scaled to fit 4.5 × 1.3 cm). It takes no space, so the template's fixed row heights are unchanged.
+6. `renumberDrawingIds` makes every `wp:docPr` id unique, because repeated pages copy the template's logo.
 
 ## Decisions and gotchas
-- Template placeholders must not be split across XML runs, or docxtemplater will not see them. Edit the template carefully in Word (type the tag in one go) and check the result.
-- Only the first 6 pastors, 2 special visitors, and 2 responsible deacons are printed; extras are silently dropped. Deacons in service (`diaconosEmServico`) are not printed, only their count.
-- Tag names are part of the contract between `lib/odt-generator.ts` and the template (e.g. `TestemunhoDeCura`, `QuantidadeDeDiaconosPresentes`, `presentes`). Renaming one side without the other leaves a blank field, not an error.
-- `formatCurrency` returns "" for zero/null `Decimal`, so R$ 0,00 values print blank.
-- The DOCX template is maintained by hand in Word; there is no build step that prepares it.
+- Tag names are a contract between `lib/report-docx.ts` and the template. Renaming one side only leaves a blank field, not an error. `responsavelPeloRelatorio` prints the treasurer's name.
+- Names beyond the template's pastor/visitor slots are not printed. Deacons in service are printed only as a count.
+- A person without a signature leaves that cell blank. Old unlinked reports fall back to the deprecated name columns, without signatures.
+- `formatCurrency` returns "" only for null; zero `Decimal` values print "R$ 0,00".
+- `lib/report-docx.ts` imports `server-only`; run it from scripts with `npx tsx --conditions=react-server`.
+- Inside the ZIP, two reports with the same date and time get `-2`, `-3`, and so on.
 
 ## How to verify it
-Not run while writing this doc. Create a report with 12 tithers and download it: the DOCX has 2 pages, tithers 1-10 on page 1 and 11-12 on page 2, header filled on both. Select 3 reports in `/relatorios` and download: the ZIP has 3 `.docx` files.
+Run on 2026-11-10: a generated report with 12 tithers and signatures for one deacon and the treasurer, converted to PDF with Word (COM `SaveAs2` format 17), showed 2 pages with the pastors, the visitors and both signatures over their lines on each page, and no leftover `{{` or `[[SIG` text. A ZIP of reports at 10:00, 19:30 and 19:30 on 08/11/2026 contained `REFC-08-11-2026-10h.docx`, `REFC-08-11-2026-19h30.docx` and `REFC-08-11-2026-19h30-2.docx`.

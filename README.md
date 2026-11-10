@@ -9,14 +9,16 @@ Stack: Next.js 16 (App Router), React 19, Prisma 7 on PostgreSQL (Neon), deploye
 ```bash
 npm install
 cp .env.example .env        # fill in DATABASE_URL and SESSION_SECRET
-npx prisma db push          # create the tables
+npm run db:migrate          # create the tables (prisma migrate deploy)
 npm run db:seed             # create the super-admin and the first church
 npm run dev
 ```
 
 Open http://localhost:3000 and log in with the `SEED_SUPER_ADMIN_*` or `SEED_ADMIN_*` credentials from `.env`.
 
-The schema is applied with `prisma db push`; there are no committed migrations yet, so `npm run db:migrate` has nothing to apply.
+Schema changes go through migrations in `prisma/migrations`: create one with `npx prisma migrate dev --name <change>` against a development database, then apply it with `npm run db:migrate`. `0_init` is a baseline of the schema that existed before migrations were introduced; a database created earlier with `db push` must first run `npx prisma migrate resolve --applied 0_init`.
+
+`scripts/list-unmatched-report-people.ts` (`npx tsx scripts/list-unmatched-report-people.ts`) lists old reports whose treasurer or deacon names could not be linked to a person.
 
 ## Commands
 
@@ -25,7 +27,7 @@ The schema is applied with `prisma db push`; there are no committed migrations y
 | `npm run dev` | Start the dev server |
 | `npm run build` | `prisma generate` + production build |
 | `npm run lint` | ESLint |
-| `npm run db:push` | Sync `prisma/schema.prisma` to the database |
+| `npm run db:migrate` | Apply pending migrations (`prisma migrate deploy`) |
 | `npm run db:seed` | Seed the super-admin, church admin and first church |
 
 ## Documentation
