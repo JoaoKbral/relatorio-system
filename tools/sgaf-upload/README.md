@@ -38,7 +38,7 @@ look at the summary.
 | `--church 1` | Church id in the app (default 1, IEQ Canto do Mar) |
 | `--save` | Press Salvar on SGAF |
 | `--headed` | Show the browser while it works |
-| `--allow-typed` | Allow names that don't exist in SGAF (sent as typed text) |
+| `--review` | Opens a browser and asks you about names SGAF doesn't have (see below) |
 | `--end-equals-start` | Fill "Horário término" with the start time |
 
 Reports that were saved are recorded in `uploaded.json` (gitignored) and skipped on
@@ -47,7 +47,7 @@ later runs, so re-running is safe. If you upload a report by hand, add its id th
 A report is **not** saved, and is listed as `PROBLEM`, when:
 
 - the totals SGAF computes (dízimos, ofertas, ofertas especiais) differ from the database
-- a person's name isn't found in SGAF (unless `--allow-typed`)
+- a person's name isn't found in SGAF. The summary lists the closest SGAF names
 - a field is invalid, or SGAF shows an error after Salvar
 
 If the script can't confirm that a save went through, it stops the batch so a
@@ -72,7 +72,25 @@ script searches with the original spelling, then matches ignoring accents, case 
 "da/de/do/dos/das/e" (e.g. "Caroline Ferreira Dos Santos" → "CAROLINE FERREIRA SANTOS").
 If the first name finds nothing (e.g. "Andrea" vs "ANDRÉA"), it searches by surname.
 When several SGAF people match, it takes the **first one in the dropdown order** and
-says so in the summary. The script never registers new people in SGAF.
+says so in the summary.
+
+## Names SGAF doesn't have
+
+A name SGAF doesn't have is **never sent as text**: SGAF would create a new person
+for it, and their registry would keep growing with misspellings. Instead:
+
+1. **Fix the name in the app** when it's a spelling difference (the dry run shows the
+   closest SGAF names). Next runs then match on their own.
+2. Or run with **`--review`**. A browser opens and, for each unknown name, a panel on the
+   SGAF page offers:
+   - **Usar …**: one of the closest SGAF people. The choice is saved in `aliases.json`
+     (gitignored) and reused on later runs, so you only decide once.
+   - **Cadastrar no SGAF…**: opens SGAF's own quick-registration popup with the name
+     filled in. Check it, add a phone if you want, and click Cadastrar yourself (or
+     Cancelar). The script then searches again and picks the new person.
+   - **Pular este relatório**: skip this report for now.
+
+The script only registers a person when you click Cadastrar in SGAF's popup.
 
 The in-page logic is in `sgaf-page.js`. If SGAF changes its form, that file is the one
 to update. It relies on the page's `addPregador/addPastor/addDiacono/addVisita`

@@ -21,6 +21,8 @@ const BASE = "https://conecta.sgaf.org.br";
 const FORM_URL = `${BASE}/Cadastros/Relatorios/Culto/Upsert`;
 const AUTH_FILE = path.join(HERE, ".auth/state.json");
 const LOG_FILE = path.join(HERE, "uploaded.json");
+// Choices made in --review ("this app name is that SGAF person"), reused on later runs.
+const ALIAS_FILE = path.join(HERE, "aliases.json");
 const OUT_DIR = path.join(HERE, "out");
 
 // The first "Geral" in SGAF's person list: name used for every offering.
@@ -35,7 +37,7 @@ const { values: opts, positionals } = parseArgs({
     church: { type: "string", default: "1" },
     save: { type: "boolean", default: false },
     headed: { type: "boolean", default: false },
-    "allow-typed": { type: "boolean", default: false },
+    review: { type: "boolean", default: false },
     "end-equals-start": { type: "boolean", default: false },
     help: { type: "boolean", short: "h", default: false },
   },
@@ -160,7 +162,15 @@ async function uploadOne(page, r) {
   await page.waitForSelector("#formUpsertCulto");
   await page.waitForFunction(() => typeof window.addPregador === "function" && document.getElementById("dz_pessoa_picker")?.tomselect);
 
-  const res = await page.evaluate(fillReport, r);
+  const aliases = readJson(ALIAS_FILE, {});
+  const label = `Relatório de ${r.date.split("-").reverse().join("/")} às ${r.horario}`;
+  const res = await page.evaluate(fillReport, { ...r, review: opts.review, aliases, label });
+
+  const chosen = res.log.filter((l) => l.kind === "chosen");
+  if (chosen.length) {
+    for (const c of chosen) aliases[c.aliasKey] = { id: c.id, text: c.sgaf };
+    fs.writeFileSync(ALIAS_FILE, JSON.stringify(aliases, null, 2) + "\n");
+  }
 
   const problems = [];
   if (res.diaSemana && r.diaDaSemana && res.diaSemana !== r.diaDaSemana)
@@ -170,9 +180,10 @@ async function uploadOne(page, r) {
   if (!close(res.totals.especiais, r.ofertasEspeciais))
     problems.push(`special offerings R$ ${res.totals.especiais} != ${r.ofertasEspeciais}`);
   if (res.invalid.length) problems.push(`invalid fields: ${res.invalid.join(", ")}`);
-  const typed = res.log.filter((l) => l.kind === "typed");
-  if (typed.length && !opts["allow-typed"])
-    problems.push(`${typed.length} name(s) not found in SGAF (use --allow-typed to send them as typed text)`);
+  // Names SGAF doesn't have are never sent: they would create new people there.
+  const missing = res.log.filter((l) => l.kind === "missing");
+  if (missing.length)
+    problems.push(`${missing.length} name(s) not found in SGAF. Fix them in the app, or run with --review to choose or register them`);
 
   const warnings = [];
   if (r.totalPresentes === 0) warnings.push("total presentes is 0");
@@ -201,7 +212,7 @@ async function uploadOne(page, r) {
       saved = { at: new Date().toISOString(), url: after, feedback };
     }
   }
-  return { res, problems, warnings, typed, shot, saved };
+  return { res, problems, warnings, missing, shot, saved };
 }
 
 async function main() {
@@ -221,7 +232,8 @@ async function main() {
   console.log(`${reports.length} report(s) to ${opts.save ? "UPLOAD" : "dry-run"}` + (skipped ? ` (${skipped} already in uploaded.json are skipped)` : ""));
   if (!reports.length) return;
 
-  const browser = await chromium.launch({ headless: !opts.headed });
+  // --review needs a visible browser: it asks about unknown names on the page.
+  const browser = await chromium.launch({ headless: !(opts.headed || opts.review) });
   const context = await browser.newContext({ storageState: AUTH_FILE, viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   page.on("dialog", (d) => d.dismiss().catch(() => {}));
@@ -236,7 +248,12 @@ async function main() {
         console.log(`\n${label}: ${status}`);
         for (const t of out.res.log.filter((l) => l.kind === "first-of-many"))
           console.log(`  ${t.count} matches, took the first: ${t.where} "${t.name}" -> ${t.sgaf}`);
-        for (const t of out.typed) console.log(`  typed (not in SGAF): ${t.where} "${t.name}"`);
+        for (const t of out.res.log.filter((l) => l.kind === "chosen" || l.kind === "alias"))
+          console.log(`  ${t.kind === "chosen" ? "chosen in review" : "remembered choice"}: ${t.where} "${t.name}" -> ${t.sgaf}`);
+        for (const t of out.missing) {
+          console.log(`  not in SGAF: ${t.where} "${t.name}"`);
+          if (t.suggestions.length) console.log(`      closest: ${t.suggestions.join(", ")}`);
+        }
         for (const w of out.warnings) console.log(`  warning: ${w}`);
         for (const p of out.problems) console.log(`  problem: ${p}`);
         console.log(`  screenshot: ${path.relative(process.cwd(), out.shot)}`);
@@ -251,6 +268,10 @@ async function main() {
           if (opts.save && out.problems.some((p) => p.startsWith("could not confirm"))) break;
         }
       } catch (e) {
+        if (e.message.includes("SKIPPED_IN_REVIEW")) {
+          console.log(`\n${label}: SKIPPED (you chose "Pular este relatório")`);
+          continue;
+        }
         failed++;
         console.log(`\n${label}: ERROR ${e.message}`);
         if (/session expired/.test(e.message)) break;

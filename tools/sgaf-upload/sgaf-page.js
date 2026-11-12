@@ -36,16 +36,16 @@ export async function fillReport(r) {
     return Object.values(ts.options).filter((o) => !o.__typed);
   }
 
-  // Selects the registered person matching `name`, or keeps the name as typed
-  // text (SGAF accepts that) when there is no unique match.
-  async function pick(ts, name, where) {
+  // Looks `name` up in SGAF's registry. Returns the matches (first = the one
+  // SGAF's dropdown shows first) and the closest other people as suggestions.
+  async function lookup(ts, name) {
     const want = toks(name);
-    // Candidates in the order SGAF's dropdown shows them. When several people
-    // match, the user's rule is to take the first one.
+    const seen = new Map();
     const tryQuery = async (q) => {
       const res = await search(ts, q);
       const order = ts.search(q).items.map((i) => String(i.id));
       res.sort((a, b) => order.indexOf(String(a.id)) - order.indexOf(String(b.id)));
+      for (const o of res) seen.set(String(o.id), o);
       const exact = res.filter((o) => toks(o.text).join(" ") === want.join(" "));
       return exact.length ? exact : res.filter((o) => want.every((w) => toks(o.text).includes(w)));
     };
@@ -53,22 +53,117 @@ export async function fillReport(r) {
     // the first name doesn't find them, try the surnames too.
     const words = stripTitle(name).split(/\s+/);
     const queries = [words.slice(0, 2).join(" "), want.slice(0, 2).join(" "), words.slice(-2).join(" "), words.at(-1)];
-    let m = [];
+    let matches = [];
     for (const q of [...new Set(queries)]) {
-      m = await tryQuery(q);
-      if (m.length) break;
+      matches = await tryQuery(q);
+      if (matches.length) break;
     }
-    ts.close();
-    if (m.length) {
-      ts.setValue(m[0].id);
-      log.push({ kind: m.length > 1 ? "first-of-many" : "match", where, name, sgaf: m[0].text, count: m.length });
-      return true;
+    // Same word = 2 points, a word one letter off (Francisco/Francisca) = 1.
+    const oneOff = (a, b) => {
+      if (Math.abs(a.length - b.length) > 1 || a.length < 4) return false;
+      let i = 0;
+      while (i < a.length && a[i] === b[i]) i++;
+      return a.slice(i + 1) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i) || a.slice(i) === b.slice(i + 1);
+    };
+    const score = (o) => {
+      const t = toks(o.text);
+      return want.reduce((s, w) => s + (t.includes(w) ? 2 : t.some((x) => oneOff(w, x)) ? 1 : 0), 0) + (t[0] === want[0] ? 1 : 0);
+    };
+    const suggestions = [...seen.values()]
+      .map((o) => ({ id: String(o.id), text: o.text, s: score(o) }))
+      .filter((o) => o.s >= 2)
+      .sort((a, b) => b.s - a.s)
+      .slice(0, 5)
+      .map(({ id, text }) => ({ id, text }));
+    return { matches, suggestions };
+  }
+
+  // --- review panel (only with --review) ------------------------------------
+  // Asks the person at the browser what to do with a name SGAF doesn't have.
+  // Resolves to {action: "use", id, text} | {action: "register"} | {action: "skip"}.
+  function ask(where, name, suggestions) {
+    return new Promise((resolve) => {
+      const box = document.createElement("div");
+      box.id = "sgaf-upload-review";
+      box.style.cssText =
+        "position:fixed;top:16px;right:16px;z-index:2147483646;width:380px;max-width:calc(100vw - 32px);" +
+        "background:#fff;color:#111;border:2px solid #d97706;border-radius:10px;padding:16px;" +
+        "font:14px/1.4 system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.25)";
+      const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const btn = (label, data, primary) =>
+        `<button data-a="${data}" style="display:block;width:100%;text-align:left;margin:6px 0 0;padding:8px 10px;` +
+        `border-radius:6px;cursor:pointer;border:1px solid ${primary ? "#2563eb" : "#bbb"};` +
+        `background:${primary ? "#eff6ff" : "#fff"};color:#111;font:inherit">${label}</button>`;
+      box.innerHTML =
+        `<div style="font-weight:600;margin-bottom:4px">${r.label}</div>` +
+        `<div>${esc(where)} <b>"${esc(name)}"</b> não foi encontrado no SGAF.</div>` +
+        (suggestions.length ? `<div style="margin-top:10px;color:#555">É uma destas pessoas? (fica lembrado)</div>` : "") +
+        suggestions.map((s, i) => btn("Usar " + esc(s.text), "use:" + i, true)).join("") +
+        `<div style="margin-top:10px;color:#555">Ou:</div>` +
+        btn("Cadastrar no SGAF…", "register") +
+        btn("Pular este relatório", "skip");
+      document.body.appendChild(box);
+      box.addEventListener("click", (e) => {
+        const a = e.target.closest("button")?.dataset.a;
+        if (!a) return;
+        box.remove();
+        if (a.startsWith("use:")) resolve({ action: "use", ...suggestions[Number(a.slice(4))] });
+        else resolve({ action: a });
+      });
+    });
+  }
+
+  // Opens SGAF's own quick-registration popup with the name filled in, and
+  // waits until the person closes it (after clicking Cadastrar or Cancelar).
+  async function registerInSgaf(name, ctx) {
+    window.abrirModalCadastroRapido(name, ctx || "");
+    const modal = document.getElementById("modalCadastroRapido");
+    await sleep(300);
+    while (!modal.classList.contains("hidden")) await sleep(300);
+    await sleep(500);
+  }
+
+  class SkipReport extends Error {}
+
+  // Selects the SGAF person for `name`. Never sends a name SGAF doesn't have:
+  // without --review an unknown name is reported and the report is not saved.
+  // `ctx` is the money-entry prefix (dz/of/oe/ms), used by SGAF's popup.
+  async function pick(ts, name, where, ctx) {
+    const aliasKey = `${where}|${name}`;
+    const alias = r.aliases[aliasKey];
+    if (alias) {
+      await search(ts, alias.text);
+      if (ts.options[alias.id]) {
+        ts.close();
+        ts.setValue(alias.id);
+        log.push({ kind: "alias", where, name, sgaf: alias.text });
+        return true;
+      }
     }
-    const id = "__typed__" + Date.now() + Math.random().toString(16).slice(2);
-    ts.addOption({ id, text: name, __typed: true });
-    ts.setValue(id);
-    log.push({ kind: "typed", where, name, candidates: m.length });
-    return false;
+    for (;;) {
+      const { matches, suggestions } = await lookup(ts, name);
+      ts.close();
+      if (matches.length) {
+        ts.setValue(matches[0].id);
+        log.push({ kind: matches.length > 1 ? "first-of-many" : "match", where, name, sgaf: matches[0].text, count: matches.length });
+        return true;
+      }
+      if (!r.review) {
+        log.push({ kind: "missing", where, name, suggestions: suggestions.map((s) => s.text) });
+        return false;
+      }
+      const answer = await ask(where, name, suggestions);
+      if (answer.action === "skip") throw new SkipReport("SKIPPED_IN_REVIEW");
+      if (answer.action === "use") {
+        await search(ts, answer.text);
+        ts.close();
+        ts.setValue(answer.id);
+        log.push({ kind: "chosen", where, name, sgaf: answer.text, id: answer.id, aliasKey });
+        return true;
+      }
+      await registerInSgaf(name, ctx);
+      // Loop: search again; the new person is found if it was registered.
+    }
   }
 
   // Finds the TomSelect that sits in the same row as a hidden input.
@@ -176,7 +271,7 @@ export async function fillReport(r) {
       ts.close();
       ts.setValue(personId);
     } else {
-      await pick(ts, name, where);
+      await pick(ts, name, where, px);
     }
     if (pix) await chooseSantander(px);
     set($(`#${px}_valor`), money(value));

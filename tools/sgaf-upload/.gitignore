@@ -5,3 +5,5 @@ node_modules/
 uploaded.json
 # Dry-run screenshots
 out/
+# Name choices made in --review (people data, local only)
+aliases.json
