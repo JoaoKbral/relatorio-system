@@ -22,6 +22,7 @@ Turns a saved service report into the official REFC "Relatório Estatístico e F
 
 ## Decisions and gotchas
 - Tag names are a contract between `lib/report-docx.ts` and the template. Renaming one side only leaves a blank field, not an error. `responsavelPeloRelatorio` prints the treasurer's name.
+- The official template still has an "Outras Entradas" row (`{{outrasEntradas}}`). The field was removed from reports, so `lib/report-docx.ts` always prints R$ 0,00 there, keeping the printed form complete.
 - Names beyond the template's pastor/visitor slots are not printed. Deacons in service are printed only as a count.
 - A person without a signature leaves that cell blank. Old unlinked reports fall back to the deprecated name columns, without signatures.
 - `formatCurrency` returns "" only for null; zero `Decimal` values print "R$ 0,00".

@@ -38,7 +38,6 @@ export interface FormValues {
   treasurerId: number | null;
   totalOfertasGerais: number;
   totalOfertasEspeciais: number;
-  outrasEntradas: number;
   totalOfertasMissoes: number;
 }
 
@@ -54,7 +53,6 @@ export const STAT_FIELDS = [
 export const OFFER_FIELDS = [
   { key: "totalOfertasGerais", label: "Ofertas Gerais" },
   { key: "totalOfertasEspeciais", label: "Ofertas Especiais" },
-  { key: "outrasEntradas", label: "Outras Entradas" },
   { key: "totalOfertasMissoes", label: "Oferta de Missões (3º Domingo)" },
 ] as const satisfies readonly { key: keyof FormValues; label: string }[];
 
@@ -101,7 +99,6 @@ export function emptyFormValues(): FormValues {
     treasurerId: null,
     totalOfertasGerais: 0,
     totalOfertasEspeciais: 0,
-    outrasEntradas: 0,
     totalOfertasMissoes: 0,
   };
 }
@@ -121,7 +118,6 @@ export interface ReportResponse {
   totalPresentes: number;
   totalOfertasGerais: string;
   totalOfertasEspeciais: string;
-  outrasEntradas: string;
   totalOfertasMissoes: string | null;
   treasurer: PersonOption | null;
   deacons: { personId: number; responsible: boolean; person: { name: string } }[];
@@ -158,7 +154,6 @@ export function formValuesFromReport(report: ReportResponse, knownPastors: strin
     treasurerId: report.treasurer?.id ?? null,
     totalOfertasGerais: Number(report.totalOfertasGerais),
     totalOfertasEspeciais: Number(report.totalOfertasEspeciais),
-    outrasEntradas: Number(report.outrasEntradas),
     totalOfertasMissoes: Number(report.totalOfertasMissoes ?? 0),
   };
 }
@@ -177,7 +172,7 @@ export const formatBRL = (v: number) =>
 export function totals(values: FormValues) {
   const totalDizimos = values.tithers.reduce((sum, t) => sum + t.value, 0);
   const arrecadacaoTotal =
-    totalDizimos + values.totalOfertasGerais + values.totalOfertasEspeciais + values.outrasEntradas;
+    totalDizimos + values.totalOfertasGerais + values.totalOfertasEspeciais;
   return { totalDizimos, arrecadacaoTotal };
 }
 
@@ -210,7 +205,6 @@ export function toPayload(values: FormValues): ReportInput {
     })),
     totalOfertasGerais: values.totalOfertasGerais,
     totalOfertasEspeciais: values.totalOfertasEspeciais,
-    outrasEntradas: values.outrasEntradas,
     totalOfertasMissoes: values.totalOfertasMissoes,
   };
 }
@@ -243,8 +237,9 @@ export function formValuesFromPayload(p: ReportInput, knownPastors: string[]): F
     responsibleDeacons: p.deacons.filter((d) => d.responsible).map((d) => d.personId),
     treasurerId: p.treasurerId || null,
     totalOfertasGerais: num(p.totalOfertasGerais),
-    totalOfertasEspeciais: num(p.totalOfertasEspeciais),
-    outrasEntradas: num(p.outrasEntradas),
+    // Payloads queued before "outras entradas" was removed may still carry it:
+    // fold it into the special offerings so the value is not lost.
+    totalOfertasEspeciais: num(p.totalOfertasEspeciais) + num(p.outrasEntradas),
     totalOfertasMissoes: num(p.totalOfertasMissoes),
   };
 }

@@ -291,7 +291,9 @@ export function generateReportDocx(report: ReportForDocx, churchData: ChurchData
     presentes: String(report.totalPresentes),
     totalOfertasGerais: formatCurrency(report.totalOfertasGerais),
     totalOfertasEspeciais: formatCurrency(report.totalOfertasEspeciais),
-    outrasEntradas: formatCurrency(report.outrasEntradas),
+    // The field was removed (values folded into special offerings), but the
+    // official REFC template still has the row: print it as zero.
+    outrasEntradas: formatCurrency(new Decimal(0)),
     arrecadacaoTotal: formatCurrency(report.arrecadacaoTotal),
     totalOfertasMissoes: formatCurrency(report.totalOfertasMissoes),
     totalDizimos: formatCurrency(report.totalDizimos),

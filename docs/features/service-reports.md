@@ -18,7 +18,7 @@ After each worship service, a user fills in a step-by-step form: date and time, 
 
 ## How it works
 - POST and PUT parse the body with `parseReportInput` (400 with a pt-BR message on failure), then `checkReportPeople`: the treasurer must be a person of the church, active and with role `tesoureiro`; deacon ids must belong to the church. On PUT a report keeps its current treasurer even if that person later lost the role.
-- `reportFields` computes everything derived: `diaDaSemana` from the date (UTC), `diaconosServico` = number of deacons, totals with `Decimal` (`arrecadacaoTotal` = dízimos + gerais + especiais + outras; missões is stored but excluded). Client totals are display-only.
+- `reportFields` computes everything derived: `diaDaSemana` from the date (UTC), `diaconosServico` = number of deacons, totals with `Decimal` (`arrecadacaoTotal` = dízimos + gerais + especiais; missões is stored but excluded). Client totals are display-only.
 - Deacons are `ReportDeacon` rows (`personId`, `responsible`, `order`). Responsible deacons (max 2) come first, in the order picked; that order is the signature slot order in the DOCX. PUT replaces deacons and tithers in one nested update.
 - The treasurer is `Report.treasurerId`. It is required by the API, but the column is nullable because a few old reports could not be linked during the migration.
 - POST accepts an optional `clientId` (UUID, made on the device). If the church already has a report with it, POST returns 200 with that id and creates nothing. This is what makes offline resends safe; see [Offline reports](offline-reports.md). PUT ignores `clientId`.
@@ -34,6 +34,7 @@ After each worship service, a user fills in a step-by-step form: date and time, 
 - `Report.diaconosEmServico`, `diaconosResponsaveis` and `responsavelPeloRelatorio` are deprecated and no longer written. They are still read as a fallback for reports the migration could not link, and are planned to be dropped.
 - Base UI `Select` shows the raw value unless given `items`; month selects use `MONTH_ITEMS` from `lib/months.ts`.
 - `app/culto/[id]/page.tsx` returns 404 for a session without a church (super-admin).
+- There is no "outras entradas" field. SGAF, where the reports are also filed, has no such field. Migration `20261113000000_remove_outras_entradas` added existing values into `totalOfertasEspeciais` and dropped the column, so totals did not change. The schema still accepts an optional `outrasEntradas` from old offline payloads and its `.transform` adds it to `totalOfertasEspeciais`. `formValuesFromPayload` does the same when a pending report is edited. Remove both once no device can have such a payload queued.
 
 ## How to verify it
 Run on 2026-11-10 against a Neon branch, with API and Playwright scripts:

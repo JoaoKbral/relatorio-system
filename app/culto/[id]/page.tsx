@@ -142,7 +142,6 @@ export default async function ViewReportPage({
       <Section title="Ofertas">
         <Row label="Ofertas gerais" value={fmtCurrency(report.totalOfertasGerais)} />
         <Row label="Ofertas especiais" value={fmtCurrency(report.totalOfertasEspeciais)} />
-        <Row label="Outras entradas" value={fmtCurrency(report.outrasEntradas)} />
         {report.totalOfertasMissoes && (
           <Row label="Oferta de missões" value={fmtCurrency(report.totalOfertasMissoes)} />
         )}

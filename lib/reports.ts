@@ -56,9 +56,8 @@ export function reportFields(input: ValidReportInput) {
   const totalDizimos = input.tithers.reduce((sum, t) => sum.add(toDecimal(t.value)), new Decimal(0));
   const totalOfertasGerais = toDecimal(input.totalOfertasGerais);
   const totalOfertasEspeciais = toDecimal(input.totalOfertasEspeciais);
-  const outrasEntradas = toDecimal(input.outrasEntradas);
   // Missions offering is recorded separately and is not part of the total.
-  const arrecadacaoTotal = totalDizimos.add(totalOfertasGerais).add(totalOfertasEspeciais).add(outrasEntradas);
+  const arrecadacaoTotal = totalDizimos.add(totalOfertasGerais).add(totalOfertasEspeciais);
 
   // dataCulto is a plain date: store it as UTC midnight and derive the weekday in UTC.
   const dataCulto = new Date(`${input.dataCulto}T00:00:00.000Z`);
@@ -79,7 +78,6 @@ export function reportFields(input: ValidReportInput) {
     diaconosServico: input.deacons.length,
     totalOfertasGerais,
     totalOfertasEspeciais,
-    outrasEntradas,
     totalOfertasMissoes: input.totalOfertasMissoes > 0 ? toDecimal(input.totalOfertasMissoes) : null,
     totalDizimos,
     arrecadacaoTotal,
