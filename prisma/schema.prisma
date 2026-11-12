@@ -113,7 +113,6 @@ model Report {
   totalPresentes           Int            @default(0)
   totalOfertasGerais       Decimal        @db.Decimal(10, 2)
   totalOfertasEspeciais    Decimal        @db.Decimal(10, 2)
-  outrasEntradas           Decimal        @db.Decimal(10, 2)
   arrecadacaoTotal         Decimal        @db.Decimal(10, 2)
   totalOfertasMissoes      Decimal?       @db.Decimal(10, 2)
   totalDizimos             Decimal        @db.Decimal(10, 2)

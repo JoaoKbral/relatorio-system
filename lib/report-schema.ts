@@ -54,7 +54,11 @@ export const reportInputSchema = z
       .transform((rows) => rows.filter((t) => t.personName)),
     totalOfertasGerais: money,
     totalOfertasEspeciais: money,
-    outrasEntradas: money,
+    /**
+     * Removed field. Offline payloads queued before the removal may still send
+     * it; it is added to totalOfertasEspeciais below so the value is kept.
+     */
+    outrasEntradas: money.optional(),
     totalOfertasMissoes: money,
     /** Device-generated id (offline sync). Used only on create; PUT ignores it. */
     clientId: z.uuid("Identificador do relatório inválido.").optional(),
@@ -79,7 +83,11 @@ export const reportInputSchema = z
         message: `No máximo ${MAX_RESPONSIBLE_DEACONS} diáconos responsáveis.`,
       });
     }
-  });
+  })
+  .transform(({ outrasEntradas, ...data }) => ({
+    ...data,
+    totalOfertasEspeciais: data.totalOfertasEspeciais + (outrasEntradas ?? 0),
+  }));
 
 /** What the form sends. */
 export type ReportInput = z.input<typeof reportInputSchema>;

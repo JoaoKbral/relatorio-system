@@ -74,7 +74,6 @@ export function ReviewStep({ values, people }: { values: FormValues; people: Peo
       <Section label="Ofertas">
         <Row label="Ofertas gerais" value={formatBRL(values.totalOfertasGerais)} />
         <Row label="Ofertas especiais" value={formatBRL(values.totalOfertasEspeciais)} />
-        <Row label="Outras entradas" value={formatBRL(values.outrasEntradas)} />
         {values.totalOfertasMissoes > 0 && (
           <Row label="Oferta de missões" value={formatBRL(values.totalOfertasMissoes)} />
         )}
