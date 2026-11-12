@@ -56,11 +56,19 @@ Teste primeiro numa *branch* do banco no Neon (Branches → New branch) usando a
 
 Após o deploy, o sistema estará acessível por um link como `https://seu-projeto.vercel.app`
 
-## 4. Usar em celular (como app)
+## 4. Usar em celular (como app, também sem internet)
 
-No celular, abra o link do Vercel no navegador e procure a opção
-**"Adicionar à tela inicial"** (Chrome: menu ⋮ → Adicionar à tela inicial).
-O sistema funcionará como um aplicativo instalado.
+Instale o app no celular. É isso que permite preencher relatórios sem internet:
+
+- **Android (Chrome):** abra o link do Vercel e toque em **Instalar** no aviso da tela inicial
+  (ou menu ⋮ → **Instalar app** / **Adicionar à tela inicial**).
+- **iPhone (Safari):** abra o link, toque em **Compartilhar** e depois em **Adicionar à Tela de Início**.
+  Abra o app pelo ícone e entre com seu login (o app instalado no iPhone não usa o login do Safari).
+
+Abra o app uma vez com internet depois de entrar: ele guarda o formulário e a lista de pessoas.
+Sem internet, o relatório fica salvo no aparelho e é enviado quando o app for aberto com internet.
+A barra amarela abaixo do topo mostra quantos estão esperando; em **Pendentes** há o botão
+**Enviar todos** (fique em um local com boa internet até terminar).
 
 ## Executar localmente (para testes)
 

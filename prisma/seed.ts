@@ -9,7 +9,7 @@ const prisma = new PrismaClient({ adapter })
 async function main() {
   console.log('Starting seed...')
 
-  // 1. Create the first church (IEQ Canto do Mar)
+  // 1. Create the first church (name and details from the CHURCH_* env vars)
   let church = await prisma.church.findFirst({ where: { name: process.env.CHURCH_NAME! } })
 
   if (!church) {
@@ -29,7 +29,7 @@ async function main() {
     console.log(`Church already exists: ${church.name} (id=${church.id})`)
   }
 
-  // 2. Create the ADMIN user for IEQ Canto do Mar
+  // 2. Create the ADMIN user for that church
   const adminEmail = process.env.SEED_ADMIN_EMAIL?.toLowerCase().trim()
   const adminPassword = process.env.SEED_ADMIN_PASSWORD
   if (!adminEmail || !adminPassword) throw new Error('SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD env vars are required')

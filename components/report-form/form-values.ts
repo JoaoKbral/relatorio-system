@@ -214,3 +214,37 @@ export function toPayload(values: FormValues): ReportInput {
     totalOfertasMissoes: values.totalOfertasMissoes,
   };
 }
+
+/** Back from a payload saved on the device (editing a pending offline report). */
+export function formValuesFromPayload(p: ReportInput, knownPastors: string[]): FormValues {
+  const known = new Set(knownPastors);
+  const num = (v: unknown) => Number(v) || 0;
+  const tithers: TitherRow[] = p.tithers.map((t) => ({
+    key: nextKey++,
+    personName: t.personName,
+    paymentMethod: t.paymentMethod ?? "PIX",
+    value: num(t.value),
+  }));
+  return {
+    dataCulto: p.dataCulto,
+    horario: p.horario,
+    pregador: p.pregador,
+    testemunhoCura: num(p.testemunhoCura),
+    conversoes: num(p.conversoes),
+    batizadosEspirito: num(p.batizadosEspirito),
+    visitantes: num(p.visitantes),
+    criancasApresentadas: num(p.criancasApresentadas),
+    totalPresentes: num(p.totalPresentes),
+    pastoresCheckbox: p.pastoresPresentes.filter((n) => known.has(n)),
+    pastoresExtras: [...p.pastoresPresentes.filter((n) => n && !known.has(n)), ""],
+    visitasEspeciais: [...p.visitasEspeciais.filter(Boolean), ""],
+    tithers: [...tithers, emptyTither(tithers.at(-1)?.paymentMethod ?? "PIX")],
+    deaconsInService: p.deacons.map((d) => d.personId),
+    responsibleDeacons: p.deacons.filter((d) => d.responsible).map((d) => d.personId),
+    treasurerId: p.treasurerId || null,
+    totalOfertasGerais: num(p.totalOfertasGerais),
+    totalOfertasEspeciais: num(p.totalOfertasEspeciais),
+    outrasEntradas: num(p.outrasEntradas),
+    totalOfertasMissoes: num(p.totalOfertasMissoes),
+  };
+}

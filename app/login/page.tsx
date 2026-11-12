@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Church } from "lucide-react";
+import { clearOfflinePages } from "@/lib/offline/clear";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,8 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
+        // Pages saved for offline use may belong to a previous user.
+        await clearOfflinePages();
         window.location.href = "/";
       } else {
         const data = await res.json().catch(() => ({}));

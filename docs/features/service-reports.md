@@ -13,7 +13,7 @@ After each worship service, a user fills in a step-by-step form: date and time, 
 - `app/relatorios/page.tsx` - history by year/month, multi-select ZIP download, delete
 - `lib/report-schema.ts` - zod schema of the request body, shared by client (types) and server (validation)
 - `lib/reports.ts` - server: validation, people checks, computed columns, deacon/tither rows, person auto-create, view include
-- `app/api/relatorios/route.ts` (GET list, POST), `app/api/relatorios/[id]/route.ts` (GET, PUT, DELETE admin-only)
+- `app/api/relatorios/route.ts` (GET list, POST; POST dedupes by `clientId`), `app/api/relatorios/[id]/route.ts` (GET, PUT, DELETE admin-only)
 - `prisma/schema.prisma` - `Report`, `ReportDeacon`, `TitheRecord`
 
 ## How it works
@@ -21,6 +21,8 @@ After each worship service, a user fills in a step-by-step form: date and time, 
 - `reportFields` computes everything derived: `diaDaSemana` from the date (UTC), `diaconosServico` = number of deacons, totals with `Decimal` (`arrecadacaoTotal` = dízimos + gerais + especiais + outras; missões is stored but excluded). Client totals are display-only.
 - Deacons are `ReportDeacon` rows (`personId`, `responsible`, `order`). Responsible deacons (max 2) come first, in the order picked; that order is the signature slot order in the DOCX. PUT replaces deacons and tithers in one nested update.
 - The treasurer is `Report.treasurerId`. It is required by the API, but the column is nullable because a few old reports could not be linked during the migration.
+- POST accepts an optional `clientId` (UUID, made on the device). If the church already has a report with it, POST returns 200 with that id and creates nothing. This is what makes offline resends safe; see [Offline reports](offline-reports.md). PUT ignores `clientId`.
+- The new-report form saves to the device when the server cannot be reached. The people lists come from `lib/offline/people.ts`, which falls back to the device copy.
 - After saving, `ensurePeopleExist` creates a Person (role `membro`) for new free-text names (preacher, pastors, visitors, tithers), matched accent- and case-insensitively.
 - `/relatorios` defaults to the current month; the chosen year/month is kept in `sessionStorage` (`relatorios.filter`) for the tab's session. It is read in an effect, not during render, to avoid a hydration mismatch.
 

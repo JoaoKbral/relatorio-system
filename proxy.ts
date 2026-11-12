@@ -54,5 +54,7 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Public files the browser fetches without a session: PWA manifest, service
+  // worker, icons and the offline page.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|offline.html|icons/).*)'],
 }
