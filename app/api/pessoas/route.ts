@@ -28,6 +28,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q") ?? "";
   const role = searchParams.get("role");
+  // The offline cache loads the whole active list at once (default 50 for searches).
+  const limit = Math.min(Math.max(Math.trunc(Number(searchParams.get("limit"))) || 50, 1), 2000);
 
   const conditions: Prisma.Sql[] = [
     Prisma.sql`"churchId" = ${churchId}`,
@@ -39,7 +41,7 @@ export async function GET(req: NextRequest) {
   const people = await prisma.$queryRaw<PersonRow[]>(
     Prisma.sql`SELECT id, name, roles, active, "churchId", "createdAt", "updatedAt",
                       EXISTS (SELECT 1 FROM "PersonSignature" s WHERE s."personId" = "Person".id) AS "hasSignature"
-               FROM "Person" WHERE ${Prisma.join(conditions, " AND ")} ORDER BY name ASC LIMIT 50`
+               FROM "Person" WHERE ${Prisma.join(conditions, " AND ")} ORDER BY name ASC LIMIT ${limit}`
   );
 
   return Response.json(people);

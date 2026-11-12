@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSession } from "@/lib/session";
+import InstallHint from "@/components/offline/InstallHint";
 
 export default async function HomePage() {
   const session = await getSession();
@@ -21,6 +22,8 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <InstallHint />
+
       {/* Hero action */}
       <div className="bg-blue-600 rounded-2xl p-6 text-white text-center shadow-md">
         <p className="text-lg font-semibold mb-1">Novo Culto</p>

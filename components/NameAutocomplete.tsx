@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
+import { useOffline } from "@/components/offline/OfflineProvider";
+import { searchCachedPeople } from "@/lib/offline/people";
 
 interface Person {
   id: number;
@@ -21,11 +23,14 @@ interface Props {
 
 const MIN_CHARS = 2;
 const DEBOUNCE_MS = 250;
+/** Weak signal: stop waiting for the server and search the device copy instead. */
+const SEARCH_TIMEOUT_MS = 4_000;
 
 /**
  * Text input that suggests people's names while the user types.
  * Searches only on user input: values set by code (e.g. loading a report to
- * edit) never open the suggestion list.
+ * edit) never open the suggestion list. Offline, it searches the copy of the
+ * people list saved on the device.
  */
 export default function NameAutocomplete({
   value,
@@ -36,6 +41,7 @@ export default function NameAutocomplete({
   disabled,
   onBlur,
 }: Props) {
+  const { churchId } = useOffline();
   const [suggestions, setSuggestions] = useState<Person[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -79,18 +85,30 @@ export default function NameAutocomplete({
     debounceRef.current = setTimeout(async () => {
       const controller = new AbortController();
       requestRef.current = controller;
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, SEARCH_TIMEOUT_MS);
+      const show = (data: Person[]) => {
+        if (requestRef.current !== controller) return; // a newer search started
+        setSuggestions(data);
+        setOpen(data.length > 0);
+      };
       setLoading(true);
       try {
+        if (!navigator.onLine) throw new Error("offline");
         const params = new URLSearchParams({ q: query.trim() });
         if (role) params.set("role", role);
         const res = await fetch(`/api/pessoas?${params}`, { signal: controller.signal });
-        if (!res.ok) return;
-        const data: Person[] = await res.json();
-        setSuggestions(data);
-        setOpen(data.length > 0);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        show(await res.json());
       } catch {
-        // Aborted or offline: keep the field usable without suggestions.
+        // Offline or too slow: search the device copy. Cancelled by the user: nothing.
+        const cancelled = controller.signal.aborted && !timedOut;
+        if (!cancelled && churchId) show(await searchCachedPeople(churchId, query, role));
       } finally {
+        clearTimeout(timer);
         if (requestRef.current === controller) setLoading(false);
       }
     }, DEBOUNCE_MS);

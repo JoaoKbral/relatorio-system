@@ -15,7 +15,7 @@ Users log in with email and password and stay signed in for 7 days. Each church 
 ## How it works
 - Login looks up the user by lowercased email, refuses inactive users and users whose church is not `ACTIVE` (SUPER_ADMIN has no church), then sets an httpOnly, `sameSite: strict` cookie named `session`.
 - The JWT carries `{ userId, email, churchId, churchName, role }`. `churchName` is shown in the header by `app/layout.tsx`; `PUT /api/igreja/config` re-issues the cookie when the church is renamed.
-- `proxy.ts` runs on every non-static path: public auth APIs pass, logged-in users are bounced off `/login` and `/registrar`, anonymous users get 401 (API) or a redirect to `/login`, SUPER_ADMIN is sent from `/` to `/admin`, and `/admin` + `/api/admin/*` are SUPER_ADMIN-only.
+- `proxy.ts` runs on every non-static path (its matcher also skips the PWA files `manifest.webmanifest`, `sw.js`, `offline.html`, `icons/`): public auth APIs pass, logged-in users are bounced off `/login` and `/registrar`, anonymous users get 401 (API) or a redirect to `/login`, SUPER_ADMIN is sent from `/` to `/admin`, and `/admin` + `/api/admin/*` are SUPER_ADMIN-only.
 - Every API route still calls a `require*` guard itself and filters every query by the session's `churchId`. There is no automatic Prisma-level tenant filter (deliberate: explicit is easier to debug).
 - `requireChurch*` reject sessions with `churchId === null`, i.e. SUPER_ADMIN cannot call church-scoped APIs.
 

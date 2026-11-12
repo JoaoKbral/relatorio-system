@@ -10,10 +10,10 @@ Each church keeps a list of people with roles (Pastor, Diácono, Tesoureiro, Mem
 - `components/SignatureUpload.tsx` - upload, preview (checkerboard), replace and remove a signature
 - `lib/signature-image.ts` - browser-side processing of the uploaded image
 - `lib/png.ts` - PNG signature and size check used by the API
-- `app/api/pessoas/route.ts` - GET search (`q`, `role`; active only, max 50, includes `hasSignature`), POST find-or-create
+- `app/api/pessoas/route.ts` - GET search (`q`, `role`, `limit` default 50, max 2000; active only, includes `hasSignature`), POST find-or-create
 - `app/api/pessoas/[id]/route.ts` - GET (includes `signatureUpdatedAt`), PUT and DELETE (admin only; DELETE sets `active: false`)
 - `app/api/pessoas/[id]/assinatura/route.ts` - GET the PNG, PUT (admin, raw `image/png` body), DELETE
-- `components/NameAutocomplete.tsx` - name suggestions while typing, dropdown in a portal
+- `components/NameAutocomplete.tsx` - name suggestions while typing, dropdown in a portal; offline or after 4 s it searches the copy saved on the device (see [Offline reports](offline-reports.md))
 
 ## How it works
 - Search uses raw SQL `unaccent(name) ILIKE unaccent('%q%')`, so "joao" finds "João". Role filter is `role = ANY(roles)`. POST and PUT reject roles not in `lib/roles.ts`.

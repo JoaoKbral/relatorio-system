@@ -107,7 +107,7 @@ export default function RegistrarPage() {
                   <Label htmlFor="churchName">Nome da Igreja *</Label>
                   <Input
                     id="churchName"
-                    placeholder="Ex: IEQ Canto do Mar"
+                    placeholder="Ex: Igreja Central"
                     value={form.churchName}
                     onChange={(e) => set("churchName", e.target.value)}
                     required
@@ -119,7 +119,7 @@ export default function RegistrarPage() {
                   <Label htmlFor="city">Cidade / Bairro *</Label>
                   <Input
                     id="city"
-                    placeholder="Ex: São Sebastião – Canto do Mar"
+                    placeholder="Ex: São Paulo – Centro"
                     value={form.city}
                     onChange={(e) => set("city", e.target.value)}
                     required

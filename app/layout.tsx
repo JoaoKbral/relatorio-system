@@ -6,14 +6,17 @@ import Link from "next/link";
 import { Church, FileText, Users, Settings, HandCoins } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { getSession } from "@/lib/session";
+import OfflineProvider from "@/components/offline/OfflineProvider";
+import OfflineStatusBar from "@/components/offline/OfflineStatusBar";
 
 const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Relatório de Culto",
   description: "Sistema de relatório estatístico e financeiro de culto",
-  manifest: "/manifest.json",
+  // The manifest link comes from app/manifest.ts.
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Culto" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
@@ -34,6 +37,7 @@ export default async function RootLayout({
   return (
     <html lang="pt-BR" className={geist.className}>
       <body className="min-h-screen bg-gray-50 flex flex-col">
+        <OfflineProvider churchId={session?.churchId ?? null}>
         {/* Top nav */}
         <header className="bg-blue-700 text-white shadow-md">
           <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
@@ -48,6 +52,8 @@ export default async function RootLayout({
             </div>
           </div>
         </header>
+
+        <OfflineStatusBar />
 
         {/* Main */}
         <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-6">
@@ -105,6 +111,7 @@ export default async function RootLayout({
         </nav>
 
         <Toaster richColors position="top-center" />
+        </OfflineProvider>
       </body>
     </html>
   );
