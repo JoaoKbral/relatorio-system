@@ -56,6 +56,8 @@ export const reportInputSchema = z
     totalOfertasEspeciais: money,
     outrasEntradas: money,
     totalOfertasMissoes: money,
+    /** Device-generated id (offline sync). Used only on create; PUT ignores it. */
+    clientId: z.uuid("Identificador do relatório inválido.").optional(),
   })
   .superRefine((data, ctx) => {
     const ids = data.deacons.map((d) => d.personId);
