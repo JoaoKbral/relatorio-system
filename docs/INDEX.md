@@ -9,3 +9,4 @@ Multi-tenant Next.js 16 + Prisma 7 (PostgreSQL/Neon) app where churches record e
 - [Tithe reports](features/tithe-reports.md) - `/dizimistas`: monthly per-person, per-day, and multi-month comparative tithe reports with PDF/XLSX export
 - [Offline reports (PWA)](features/offline-reports.md) - Installable app, new reports saved on the device without internet and synced later (service worker, IndexedDB outbox, `clientId` dedupe, `/pendentes`)
 - [People](features/people.md) - Person registry with roles (incl. tesoureiro), signature upload and two-colour cleanup, accent-insensitive search, name autocomplete
+- [SGAF upload](features/sgaf-upload.md) - `tools/sgaf-upload` CLI that fills SGAF Conecta's report form from the database with Playwright; name matching, `--review` for unknown names, never sends typed names
