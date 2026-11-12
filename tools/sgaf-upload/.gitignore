@@ -1,0 +1,7 @@
+node_modules/
+# SGAF login session (cookies)
+.auth/
+# Which reports were already uploaded (local state)
+uploaded.json
+# Dry-run screenshots
+out/
