@@ -8,7 +8,7 @@ const OFFLINE_URL = "/offline.html";
 /** Pages kept for offline use. Other pages show the offline notice. */
 const OFFLINE_PAGES = ["/", "/culto/novo", "/pendentes"];
 const PRECACHE = [OFFLINE_URL, "/icons/icon-192.png"];
-/** Hashed build files accumulate across deploys; start over past this size. */
+/** Hashed build files accumulate across deploys; past this, unused ones are removed. */
 const MAX_STATIC_ENTRIES = 400;
 /** On weak signal, fall back to the saved page instead of waiting forever. */
 const NAV_TIMEOUT_MS = 6000;
@@ -98,43 +98,61 @@ async function navigate(req, url) {
 
 const ASSET_RE = /\/_next\/static\/[^"'\s)\\]+/g;
 
-/** Downloads the offline pages and every build file they reference. */
+/**
+ * Downloads the offline pages and every build file they reference.
+ * All or nothing: the saved pages are only replaced, and old build files only
+ * removed, once every file the new pages need is on the device. A connection
+ * that drops halfway must never leave a saved page pointing at missing files.
+ */
 async function warm() {
-  const statics = await caches.open(STATIC_CACHE);
-  if ((await statics.keys()).length > MAX_STATIC_ENTRIES) {
-    await caches.delete(STATIC_CACHE);
-  }
-  const pages = await caches.open(PAGE_CACHE);
+  const fresh = []; // [path, Response] of pages not saved yet
   const assets = new Set();
 
   for (const page of OFFLINE_PAGES) {
+    let res;
     try {
-      const res = await fetch(page, { credentials: "same-origin", cache: "no-store" });
-      // Logged out: the server redirects to /login. Keep what we had.
-      if (!res.ok || res.redirected) continue;
-      const html = await res.clone().text();
-      await pages.put(page, res);
-      for (const m of html.matchAll(ASSET_RE)) assets.add(m[0]);
+      res = await fetch(page, { credentials: "same-origin", cache: "no-store" });
     } catch {
-      return; // offline: try again next time
+      return; // offline: keep everything as it is, try again next time
+    }
+    // Logged out: the server redirects to /login. Keep what we had.
+    if (!res.ok || res.redirected) continue;
+    const html = await res.clone().text();
+    for (const m of html.matchAll(ASSET_RE)) assets.add(m[0]);
+    fresh.push([page, res]);
+  }
+  if (fresh.length === 0) return;
+
+  const statics = await caches.open(STATIC_CACHE);
+  // A Set visits entries added during the loop: fonts found in CSS get fetched too.
+  for (const path of assets) {
+    let res = await statics.match(path);
+    if (!res) {
+      try {
+        res = await fetch(path);
+      } catch {
+        return; // dropped halfway: old pages and files stay untouched
+      }
+      if (!res.ok) continue;
+      await statics.put(path, res.clone());
+    }
+    // Stylesheets reference fonts with url(...).
+    if (path.endsWith(".css")) {
+      for (const m of (await res.text()).matchAll(ASSET_RE)) assets.add(m[0]);
     }
   }
 
-  const cache = await caches.open(STATIC_CACHE);
-  for (const path of assets) {
-    if (await cache.match(path)) continue;
-    try {
-      const res = await fetch(path);
-      if (!res.ok) continue;
-      // Stylesheets reference fonts with url(...).
-      if (path.endsWith(".css")) {
-        for (const m of (await res.clone().text()).matchAll(ASSET_RE)) {
-          if (!assets.has(m[0])) assets.add(m[0]);
-        }
-      }
-      await cache.put(path, res);
-    } catch {
-      return;
+  const pages = await caches.open(PAGE_CACHE);
+  for (const [page, res] of fresh) await pages.put(page, res);
+
+  // Hashed files pile up across deploys. Past the limit, drop the ones no
+  // saved page uses any more. Only when every page was refreshed: an old copy
+  // left in place still needs its old files, which are not in `assets`.
+  const keys = await statics.keys();
+  if (fresh.length === OFFLINE_PAGES.length && keys.length > MAX_STATIC_ENTRIES) {
+    for (const req of keys) {
+      const path = new URL(req.url).pathname;
+      if (path.startsWith("/_next/static/") && !assets.has(path)) await statics.delete(req);
     }
   }
 }

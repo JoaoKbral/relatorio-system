@@ -36,8 +36,13 @@ export const useOffline = () => useContext(OfflineContext);
 
 /** How often to retry while reports are waiting: `online` can be true with no real internet. */
 const RETRY_MS = 60_000;
-/** How often to re-download the pages kept for offline use (several page renders). */
-const WARM_EVERY_MS = 15 * 60_000;
+/**
+ * Minimum gap between re-downloads of the pages kept for offline use. Opening
+ * a page online already refreshes its copy, and login clears the timestamp, so
+ * this only catches deploys for pages not visited since. Kept sparse to spare
+ * mobile data.
+ */
+const WARM_EVERY_MS = 12 * 60 * 60_000;
 const WARM_KEY = "offline.lastWarm";
 /**
  * The people list is one small query, refreshed on navigation: someone
