@@ -17,7 +17,7 @@ After each worship service, a user fills in a step-by-step form: date and time, 
 - `prisma/schema.prisma` - `Report`, `ReportDeacon`, `TitheRecord`
 
 ## How it works
-- POST and PUT parse the body with `parseReportInput` (400 with a pt-BR message on failure), then `checkReportPeople`: the treasurer must be a person of the church, active and with role `tesoureiro`; deacon ids must belong to the church. On PUT a report keeps its current treasurer even if that person later lost the role.
+- POST and PUT parse the body with `parseReportInput` (400 with a pt-BR message on failure), then `checkReportPeople`: the treasurer must be a person of the church, active and with role `tesoureiro`; every deacon must be a person of the church, active and with role `diacono`. On PUT the route passes the report's current treasurer and deacon ids, and those people are exempt, so a report stays editable after someone changes role or is deactivated.
 - `reportFields` computes everything derived: `diaDaSemana` from the date (UTC), `diaconosServico` = number of deacons, totals with `Decimal` (`arrecadacaoTotal` = dízimos + gerais + especiais; missões is stored but excluded). Client totals are display-only.
 - Deacons are `ReportDeacon` rows (`personId`, `responsible`, `order`). Responsible deacons (max 2) come first, in the order picked; that order is the signature slot order in the DOCX. PUT replaces deacons and tithers in one nested update.
 - The treasurer is `Report.treasurerId`. It is required by the API, but the column is nullable because a few old reports could not be linked during the migration.
@@ -30,7 +30,8 @@ After each worship service, a user fills in a step-by-step form: date and time, 
 - Month ranges in `GET /api/relatorios` use `Date.UTC`, because `dataCulto` is stored as UTC midnight. The tithe report APIs still use local time (see [Tithe reports](tithe-reports.md)).
 - Money fields must use `CurrencyInput` (cents-first mask, value in reais as a number). Do not use `<input type="number">`.
 - `NameAutocomplete` searches only from its own `onChange`. Do not move the search back into an effect on `value`: values filled in by code (loading a report to edit) would open a suggestion list on every field.
-- The edit page adds the report's current deacons and treasurer to the option lists, so people who changed role or were deactivated stay selectable.
+- The edit page adds the report's current deacons and treasurer to the option lists, so people who changed role or were deactivated stay selectable. The server's PUT exemption in `checkReportPeople` must match this, or saving such a report fails.
+- The deacon role/active rule is enforced on the server, not just by the picker in `use-people-options.ts`: responsible deacons' signatures are printed on the DOCX, so a crafted request must not be able to put a pastor or a deactivated person there. A queued offline report whose deacon was deactivated meanwhile is rejected on sync, like the treasurer.
 - `Report.diaconosEmServico`, `diaconosResponsaveis` and `responsavelPeloRelatorio` are deprecated and no longer written. They are still read as a fallback for reports the migration could not link, and are planned to be dropped.
 - Base UI `Select` shows the raw value unless given `items`; month selects use `MONTH_ITEMS` from `lib/months.ts`.
 - `app/culto/[id]/page.tsx` returns 404 for a session without a church (super-admin).

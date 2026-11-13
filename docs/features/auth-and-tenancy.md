@@ -23,6 +23,8 @@ Users log in with email and password and stay signed in for 7 days. Each church 
 - Custom JWT instead of NextAuth - only a credentials flow is needed; keeps deps small.
 - The session is not re-checked against the DB. Deactivating a user, changing their role, or suspending their church takes effect only at next login (up to 7 days).
 - Login on an unknown email runs bcrypt against a dummy hash so timing does not reveal which emails exist. Keep this if you touch the login route.
+- Login checks the password before the church status, so "Igreja inativa ou suspensa" (403) is only shown to someone who knows the password. Checking status first told anyone that the email had an account.
+- Register still answers "E-mail já cadastrado" (409) for an existing email. This is deliberate: the app sends no email, so a generic reply would leave real users without a hint. It hashes the password before the lookup so timing does not tell existing and new emails apart, and rejects non-string fields with 400 before the lookup (a crash after it made a probe that created nothing).
 - Passwords are limited to 8-72 chars because bcrypt silently truncates after 72 bytes. The check is duplicated in register, change-password, `/api/usuarios`, and `/api/admin/igrejas*`.
 - `/registrar` creates churches as `ACTIVE` immediately; `PENDING` exists in the enum for a future approval step.
 - Requires `SESSION_SECRET`; `getEncodedKey()` throws without it.

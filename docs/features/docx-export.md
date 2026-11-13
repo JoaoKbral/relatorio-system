@@ -17,10 +17,11 @@ Turns a saved service report into the official REFC "Relatório Estatístico e F
 2. The template body has 10 tither slots (`{{nomeDizimista1..10}}`, `{{valorDizimo1..10}}`). Pages = ceil(tithers / 10), minimum 1. The body is repeated per page with a page break; the trailing `<w:sectPr>` is kept once.
 3. Per page, tither tags are shifted (page 2 uses 11..20). The repeated un-numbered tags `{{pastorPresente}}` and `{{visitaEspecial}}` are numbered; their slots per page are counted from the template (currently 4 and 3).
 4. Docxtemplater renders with `{{ }}` delimiters and a `nullGetter` that returns "". Font sizes are then forced to 9pt.
-5. Signature tags (`assinaturaDiaconoResponsavel1/2`, `assinaturaResponsavelPeloRelatorio`) render as `[[SIG:tag]]` markers. `insertSignatures` adds each PNG to `word/media` with a relationship and replaces the marker with a floating `<wp:anchor>` (in front of text, `wrapNone`, centred in the cell, scaled to fit 4.5 × 1.3 cm). It takes no space, so the template's fixed row heights are unchanged.
+5. Signature tags (`assinaturaDiaconoResponsavel1/2`, `assinaturaResponsavelPeloRelatorio`) render as `[[SIG:<nonce>:tag]]` markers, where the nonce is random per generated document. `insertSignatures` replaces only markers with that nonce: it adds each PNG to `word/media` with a relationship and replaces the marker with a floating `<wp:anchor>` (in front of text, `wrapNone`, centred in the cell, scaled to fit 4.5 × 1.3 cm). It takes no space, so the template's fixed row heights are unchanged.
 6. `renumberDrawingIds` makes every `wp:docPr` id unique, because repeated pages copy the template's logo.
 
 ## Decisions and gotchas
+- The signature marker must stay unguessable. User text (preacher, pastors, tithers, church fields) is rendered before the markers are replaced, so with a fixed `[[SIG:tag]]` anyone could type it into a name and get a copy of the treasurer's or deacon's signature at that spot. With the nonce, typed markers print literally.
 - Tag names are a contract between `lib/report-docx.ts` and the template. Renaming one side only leaves a blank field, not an error. `responsavelPeloRelatorio` prints the treasurer's name.
 - The official template still has an "Outras Entradas" row (`{{outrasEntradas}}`). The field was removed from reports, so `lib/report-docx.ts` always prints R$ 0,00 there, keeping the printed form complete.
 - Names beyond the template's pastor/visitor slots are not printed. Deacons in service are printed only as a count.
