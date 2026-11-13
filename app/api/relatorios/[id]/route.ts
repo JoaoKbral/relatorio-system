@@ -46,7 +46,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const existing = await prisma.report.findFirst({
     where: { id, churchId },
-    select: { treasurerId: true },
+    select: { treasurerId: true, deacons: { select: { personId: true } } },
   });
   if (!existing) return notFound();
 
@@ -54,7 +54,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 400 });
   const input = parsed.data;
 
-  const peopleError = await checkReportPeople(churchId, input, existing.treasurerId);
+  const peopleError = await checkReportPeople(
+    churchId,
+    input,
+    existing.treasurerId,
+    existing.deacons.map((d) => d.personId)
+  );
   if (peopleError) return Response.json({ error: peopleError }, { status: 400 });
 
   // Deacons and tithers are replaced wholesale, in one transaction.

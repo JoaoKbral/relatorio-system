@@ -23,14 +23,17 @@ export function parseReportInput(body: unknown): Result<ValidReportInput> {
 
 /**
  * Checks that the treasurer and deacons are people of this church.
- * The treasurer must be active and have the "tesoureiro" role, except when the
- * report already had that treasurer (editing an old report must not fail just
- * because the person later changed role).
+ * The treasurer must be active and have the "tesoureiro" role, and each deacon
+ * must be active and have the "diacono" role. People the report already had
+ * are exempt (editing an old report must not fail just because someone later
+ * changed role or was deactivated). The deacon signatures are printed on the
+ * DOCX, so this cannot rely on the form's picker alone.
  */
 export async function checkReportPeople(
   churchId: number,
   input: ValidReportInput,
-  currentTreasurerId?: number | null
+  currentTreasurerId?: number | null,
+  currentDeaconIds: number[] = []
 ): Promise<string | null> {
   const treasurer = await prisma.person.findFirst({
     where: { id: input.treasurerId, churchId },
@@ -43,8 +46,15 @@ export async function checkReportPeople(
   }
 
   const deaconIds = input.deacons.map((d) => d.personId);
-  const found = await prisma.person.count({ where: { id: { in: deaconIds }, churchId } });
-  if (found !== deaconIds.length) return "Diácono não encontrado.";
+  const deacons = await prisma.person.findMany({
+    where: { id: { in: deaconIds }, churchId },
+    select: { id: true, active: true, roles: true },
+  });
+  if (deacons.length !== deaconIds.length) return "Diácono não encontrado.";
+  const kept = new Set(currentDeaconIds);
+  if (deacons.some((d) => !kept.has(d.id) && (!d.active || !d.roles.includes("diacono")))) {
+    return "Uma das pessoas selecionadas não está cadastrada como diácono.";
+  }
 
   return null;
 }
