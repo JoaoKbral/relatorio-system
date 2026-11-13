@@ -29,14 +29,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
   }
 
-  if (user.role !== 'SUPER_ADMIN' && user.church?.status !== 'ACTIVE') {
-    await verifyPassword(String(password), await getDummyHash())
-    return NextResponse.json({ error: 'Igreja inativa ou suspensa' }, { status: 403 })
-  }
-
   const valid = await verifyPassword(String(password), user.passwordHash)
   if (!valid) {
     return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
+  }
+
+  // Only reveal the church status to someone who knows the password; otherwise
+  // this message would tell anyone that the email has an account.
+  if (user.role !== 'SUPER_ADMIN' && user.church?.status !== 'ACTIVE') {
+    return NextResponse.json({ error: 'Igreja inativa ou suspensa' }, { status: 403 })
   }
 
   const token = await encrypt({
