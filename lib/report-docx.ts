@@ -3,6 +3,7 @@
 // The template is edited by hand in Word. Its {{tag}} names are a contract with
 // this file: renaming a tag on one side only leaves a blank field, not an error.
 import "server-only";
+import { randomBytes } from "crypto";
 import fs from "fs";
 import path from "path";
 import PizZip from "pizzip";
@@ -158,7 +159,11 @@ function shiftNumberedTag(xml: string, tagName: string, pageIndex: number, slots
 
 // ─── Signatures ──────────────────────────────────────────────────────────────
 
-const signatureMarker = (key: string) => `[[SIG:${key}]]`;
+// The marker carries a random nonce made per document, so text a user types
+// into a report (e.g. "[[SIG:assinaturaResponsavelPeloRelatorio]]" as a name)
+// cannot match it and is printed literally instead of becoming a signature.
+const newSignatureNonce = () => randomBytes(12).toString("hex");
+const signatureMarker = (nonce: string, key: string) => `[[SIG:${nonce}:${key}]]`;
 
 /**
  * A picture floating in front of the text, centred in its table cell and on the
@@ -190,7 +195,7 @@ function signatureDrawing(relId: string, sig: DocxSignature, drawingId: number):
 }
 
 /** Adds the signature images to the package and swaps their markers for drawings. */
-function insertSignatures(zip: PizZip, signatures: Map<string, DocxSignature>): void {
+function insertSignatures(zip: PizZip, signatures: Map<string, DocxSignature>, nonce: string): void {
   if (signatures.size === 0) return;
 
   const relsPath = "word/_rels/document.xml.rels";
@@ -220,7 +225,8 @@ function insertSignatures(zip: PizZip, signatures: Map<string, DocxSignature>): 
   // Temporary ids; renumberDrawingIds() makes all of them unique afterwards.
   let drawingId = 100000;
   // The marker sits inside a <w:t>; close it, add the drawing to the same run, reopen it.
-  docXml = docXml.replace(/\[\[SIG:([\w-]+)\]\]/g, (_, key: string) => {
+  // Only markers with this document's nonce (hex) are replaced.
+  docXml = docXml.replace(new RegExp(`\\[\\[SIG:${nonce}:([\\w-]+)\\]\\]`, "g"), (_, key: string) => {
     const sig = signatures.get(key);
     const relId = relIds.get(key);
     if (!sig || !relId) return "";
@@ -318,10 +324,11 @@ export function generateReportDocx(report: ReportForDocx, churchData: ChurchData
 
   // Signature tags render as markers, replaced by images after rendering.
   const signatures = new Map<string, DocxSignature>();
+  const sigNonce = newSignatureNonce();
   const signatureSlot = (tag: string, person: DocxPerson | null | undefined) => {
     if (person?.signature) {
       signatures.set(tag, person.signature);
-      data[tag] = signatureMarker(tag);
+      data[tag] = signatureMarker(sigNonce, tag);
     } else {
       data[tag] = "";
     }
@@ -348,7 +355,7 @@ export function generateReportDocx(report: ReportForDocx, churchData: ChurchData
   docXml = docXml.replace(/<w:szCs w:val="\d+"\s*\/>/g, '<w:szCs w:val="18"/>');
   outZip.file("word/document.xml", docXml);
 
-  insertSignatures(outZip, signatures);
+  insertSignatures(outZip, signatures, sigNonce);
   outZip.file("word/document.xml", renumberDrawingIds(outZip.file("word/document.xml")!.asText()));
 
   return outZip.generate({ type: "nodebuffer", compression: "DEFLATE" }) as Buffer;
