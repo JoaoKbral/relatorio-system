@@ -23,6 +23,7 @@ and the full field mapping are in `tools/sgaf-upload/README.md`.
 - Different pickers can return different records for the same person (the pregador and pastor pickers gave two different ids for Fábio Cabral). That's why each row's own picker is used and aliases are stored per role (`role|name`).
 - Offerings are one entry per non-zero total. The name is the first "Geral" in SGAF, person id `322303` (`GERAL_PERSON_ID`), because SGAF has 7 people called "Geral". Histórico is left empty.
 - PIX tithes need the Santander account picked from a list that re-renders after it opens, so `chooseSantander` waits and retries until the hidden `<px>_conta` has an id.
+- SGAF sessions last about 3 hours (the `sgi_ctx` cookie expires 3 h after login). After that every page redirects to `/Login`, so `upload.mjs` stops with "session expired". `login` prints each page it visits and opens the report form before saving `.auth/state.json`, so a redirect back to the login page shows up in the output instead of being saved as a dead session.
 - If a save can't be confirmed, the batch stops, so a re-run can't create a duplicate on SGAF.
 - The tool has its own `node_modules` and Playwright Chromium, because the app's `node_modules` were installed on Windows. `tools/**` is excluded from the app's ESLint.
 - After SGAF redirects, the save check relies on the URL changing or `Relatorio.Id` being set. What SGAF actually shows after a save hasn't been seen yet.

@@ -61,10 +61,25 @@ async function login() {
   const browser = await chromium.launch({ headless: false });
   const context = await browser.newContext();
   const page = await context.newPage();
+  // Print every page SGAF sends the browser to, so a redirect loop is visible.
+  page.on("framenavigated", (f) => {
+    if (f === page.mainFrame()) console.log(`  -> ${f.url()}`);
+  });
   await page.goto(`${BASE}/Login`);
   console.log("Log in to SGAF in the browser window (up to 5 minutes)...");
   await page.waitForURL((u) => !/\/Login/i.test(u.pathname), { timeout: 5 * 60_000 });
-  await page.waitForLoadState("networkidle");
+  // "load", not "networkidle": SGAF pages can keep requests open and never go idle.
+  await page.waitForLoadState("load");
+
+  // Check that the session really opens the report form before saving it.
+  await page.goto(FORM_URL);
+  if (/\/Login/i.test(new URL(page.url()).pathname)) {
+    await browser.close();
+    throw new Error(
+      "SGAF sent the browser back to the login page after logging in, so the session was not saved. " +
+        "See the pages listed above.",
+    );
+  }
   fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
   await context.storageState({ path: AUTH_FILE });
   console.log(`Session saved to ${path.relative(process.cwd(), AUTH_FILE)}`);
@@ -157,7 +172,7 @@ const close = (a, b) => a !== null && Math.abs(a - b) < 0.005;
 async function uploadOne(page, r) {
   await page.goto(FORM_URL);
   if (/\/Login/i.test(new URL(page.url()).pathname)) {
-    throw new Error("SGAF session expired. Run `node upload.mjs login` again.");
+    throw new Error("SGAF session expired (sessions last about 3 hours). Run `node upload.mjs login` again.");
   }
   await page.waitForSelector("#formUpsertCulto");
   await page.waitForFunction(() => typeof window.addPregador === "function" && document.getElementById("dz_pessoa_picker")?.tomselect);
